@@ -783,15 +783,22 @@ app.post("/ask-matriya", requireAuth, askMatriyaMulter, async (req, res) => {
   }
 
   const spreadsheetMode = contextHasSpreadsheet || /\[גיליון:/.test(fileContext);
+  const comparisonQuery =
+    /השוואה|לעומת|\sמול\s|A\s+vs\s+B|דלתא|Δ|הפרש\s+בין|שתי\s+גרסאות|שתי\s+פורמולצ/i.test(
+      message
+    );
   const spreadsheetHint = spreadsheetMode
     ? '\n\nSpreadsheets: Lines may be tab-separated rows from Excel; sheet titles may appear as [גיליון: …]. This tabular text is valid document content. You MUST answer and summarize from it (columns, headers, values) still using ONLY that text—no outside knowledge. Never claim you lack the document when the Documents section contains non-empty spreadsheet text; describe sheets, columns, and data in Hebrew from the text only.\n'
+    : '';
+  const comparisonHint = comparisonQuery
+    ? '\n\nComparison (השוואה A מול B): If the user asks to compare two compositions/versions with percentages, respond with one Markdown table: רכיב | % (A) | % (B) | Δ (B−A) in percentage points. Use ONLY values present in the Documents text; use "—" when a value is missing. Do not invent numbers.\n'
     : '';
 
   const systemContent = fileContext
     ? `The user selected the following documents. The text below is the full extracted content (as stored for search indexing).
 
 ${ASK_MATRIYA_STRICT_DOCUMENT_ONLY_RULES}
-${spreadsheetHint}
+${spreadsheetHint}${comparisonHint}
 Documents:
 ${fileContext}`
     : "You are a helpful research assistant. You must respond in Hebrew (עברית) only. Do not use Arabic.";
