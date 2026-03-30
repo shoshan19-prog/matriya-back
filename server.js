@@ -57,6 +57,7 @@ import { buildAnswerSourcesFromRetrieval } from './lib/answerAttribution.js';
 import {
   filterRetrievalRowsByAnswerBinding
 } from './lib/answerSourceBindingFilter.js';
+import { evaluateComparisonInputPreconditions } from './lib/domainAndGenerationGate.js';
 import {
   tryDavidAcceptanceFixture,
   isDavidFormulationInsufficientQuestion,
@@ -744,7 +745,9 @@ const ASK_MATRIYA_EXCEL_CONTEXT_PREAMBLE =
 
 /** Ask Matriya: model must not answer from general knowledge — only selected document text. */
 const RAG_MEASUREMENT_SCHEMA_RULES = [
-  'When the question requires measurements/comparisons (e.g. viscosity, pH, cps, percentages), output a strict JSON object first (no prose before it) with keys:',
+  'Apply the JSON schema ONLY when the user explicitly asks for measurements/comparisons (e.g. viscosity, pH, cps, percentages, compare A vs B, deltas).',
+  'If the question is not explicitly a measurement/comparison request, DO NOT output JSON and answer in normal prose.',
+  'When JSON mode is required, output a strict JSON object first (no prose before it) with keys:',
   '{"measurements":[],"comparisons":[],"evidence_links":[],"document_classification":[],"notes":[]}.',
   'Each measurement item must include: metric, value, unit, conditions (rpm, temperature_c, sample, stage), and source_ref.',
   'CPS comparison rule (mandatory): compare cps values only when RPM exists and is equal on both sides; otherwise comparable=false with a clear reason.',
@@ -920,6 +923,23 @@ app.post("/ask-matriya", requireAuth, askMatriyaMulter, async (req, res) => {
             sources: []
           });
         }
+        const pseudoRowsForGate = loaded.map((it, i) => ({
+          id: `targeted-gate-${i + 1}`,
+          metadata: { filename: it.filename },
+          document: String(it.text || '').slice(0, 5000)
+        }));
+        const targetedCmpGate = evaluateComparisonInputPreconditions(message, pseudoRowsForGate);
+        if (targetedCmpGate.required && !targetedCmpGate.ok) {
+          return res.status(422).json({
+            error: 'INVALID_COMPARISON_INPUT',
+            message: userLang === 'he'
+              ? 'לא ניתן לבצע השוואת A/B כי חסרים שני צדדי formulation אמיתיים עם רכיבים ואחוזים תקינים.'
+              : 'Cannot run A/B comparison: missing two valid formulation sides with percentage composition.',
+            status: 'INVALID_COMPARISON_INPUT',
+            reply: userLang === 'he' ? RAG_INSUFFICIENT_SUPPORT_MESSAGE_HE : 'There is no supporting information in the system for this question.',
+            sources: []
+          });
+        }
         let fileContext = '';
         for (const it of loaded) {
           const sheet = isAskMatriyaSpreadsheetFilename(it.filename);
@@ -999,6 +1019,18 @@ ${fileContext}`;
         });
       }
       const docResult = await rag.generateAnswer(message, nPre, targetFilter, true, relevant);
+      if (docResult?.generation_blocked || docResult?.error === 'INVALID_COMPARISON_INPUT') {
+        return res.status(422).json({
+          error: 'INVALID_COMPARISON_INPUT',
+          message: userLang === 'he'
+            ? 'לא ניתן לבצע השוואה כי תנאי ה־formulation לא מתקיימים (שני צדדים, רכיבים, אחוזים, ללא metadata בלבד).'
+            : 'Cannot run comparison: formulation preconditions are not satisfied.',
+          status: 'INVALID_COMPARISON_INPUT',
+          reply: userLang === 'he' ? RAG_INSUFFICIENT_SUPPORT_MESSAGE_HE : 'There is no supporting information in the system for this question.',
+          sources: [],
+          generation_blocked: true
+        });
+      }
       let rows = filterChunksByRetrievalSimilarityThreshold(docResult.results || []);
       rows = filterRowsToTargetFilenames(rows, targetedLogicalFilenames);
       rows = filterRetrievalRowsByAnswerBinding(rows, docResult.answer || '');
@@ -1154,6 +1186,32 @@ ${fileContext}`;
       code: 'NO_INDEXED_TEXT',
       sources: []
     });
+  }
+
+  if (filenames.length > 0) {
+    const rag = getRagService();
+    const rowsForGate = [];
+    for (const fn of filenames.slice(0, 6)) {
+      const t = await loadIndexedTextForAskMatriya(rag, fn);
+      if (!t) continue;
+      rowsForGate.push({
+        id: `selected-gate-${rowsForGate.length + 1}`,
+        metadata: { filename: fn },
+        document: String(t).slice(0, 5000)
+      });
+    }
+    const selectedCmpGate = evaluateComparisonInputPreconditions(message, rowsForGate);
+    if (selectedCmpGate.required && !selectedCmpGate.ok) {
+      return res.status(422).json({
+        error: 'INVALID_COMPARISON_INPUT',
+        message: userLang === 'he'
+          ? 'לא ניתן לבצע השוואת A/B עבור המסמכים שנבחרו כי חסרים שני צדדי formulation אמיתיים עם אחוזים.'
+          : 'Cannot run A/B comparison for selected documents: missing valid formulation percentage sides.',
+        status: 'INVALID_COMPARISON_INPUT',
+        reply: userLang === 'he' ? RAG_INSUFFICIENT_SUPPORT_MESSAGE_HE : 'There is no supporting information in the system for this question.',
+        sources: []
+      });
+    }
   }
 
   const spreadsheetMode = contextHasSpreadsheet || /\[גיליון:/.test(fileContext);

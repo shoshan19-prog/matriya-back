@@ -6,7 +6,9 @@ import logger from './logger.js';
 import settings from './config.js';
 
 const RAG_MEASUREMENT_SCHEMA_RULES = [
-  'When the question requires measurements/comparisons (e.g. viscosity, pH, cps, percentages), output a strict JSON object first (no prose before it) with these keys:',
+  'Apply the JSON schema ONLY when the user explicitly asks for measurements/comparisons (e.g. viscosity, pH, cps, percentages, compare A vs B, deltas).',
+  'If the question is not explicitly a measurement/comparison request, DO NOT output JSON and answer in normal prose.',
+  'When JSON mode is required, output a strict JSON object first (no prose before it) with these keys:',
   '{"measurements":[],"comparisons":[],"evidence_links":[],"document_classification":[],"notes":[]}.',
   'Each measurement item must include: metric, value, unit, conditions (rpm, temperature_c, sample, stage), and source_ref.',
   'CPS comparison rule (mandatory): only compare cps values when RPM is explicitly present and equal on both sides; otherwise set comparable=false and explain in reason.',
