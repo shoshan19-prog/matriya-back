@@ -841,20 +841,37 @@ function filterRowsToTargetFilenames(rows, targetFilenames) {
   });
 }
 
-function askMatriyaSystemErrorPayload(userLang, reason, missingFiles = []) {
+function askMatriyaControlledFailure(userLang, kind, details = {}) {
   const he = userLang === 'he';
-  return {
-    error: 'SYSTEM_ERROR',
-    status: 'SYSTEM_ERROR',
-    reason: String(reason || 'file_not_indexed'),
-    action: 'reindex required / remove from selection',
-    message: he
-      ? 'כשל מערכת באינדוקס/שליפה: המסמך שנבחר לא נמצא באינדקס או לא נשלף כראוי.'
-      : 'System retrieval/index error: selected document is missing from index or could not be retrieved.',
-    diagnostics: {
-      missing_files: Array.isArray(missingFiles) ? missingFiles.filter(Boolean) : []
+  const missingFiles = Array.isArray(details?.missing_files) ? details.missing_files.filter(Boolean) : [];
+  const byKind = {
+    document_unavailable: {
+      status: 'DOCUMENT_UNAVAILABLE',
+      reply: he
+        ? 'המסמך שנבחר לא קיים או לא זמין במערכת.'
+        : 'The selected document does not exist or is unavailable in the system.'
     },
-    sources: []
+    no_relevant_information: {
+      status: 'NO_RELEVANT_INFORMATION',
+      reply: he
+        ? 'אין מידע רלוונטי במסמכים שנבחרו.'
+        : 'No relevant information was found in the selected documents.'
+    },
+    processing_error: {
+      status: 'PROCESSING_ERROR',
+      reply: he
+        ? 'שגיאה בעיבוד הבקשה - אין תשובה מבוססת נתונים.'
+        : 'Processing error - no data-grounded answer is available.'
+    }
+  };
+  const selected = byKind[String(kind || '')] || byKind.processing_error;
+  return {
+    status: selected.status,
+    reply: selected.reply,
+    sources: [],
+    diagnostics: {
+      missing_files: missingFiles
+    }
   };
 }
 
@@ -937,8 +954,10 @@ app.post("/ask-matriya", requireAuth, askMatriyaMulter, async (req, res) => {
           if (text) loaded.push({ filename: fn, text });
         }
         if (!loaded.length) {
-          return res.status(422).json(
-            askMatriyaSystemErrorPayload(userLang, 'file_not_indexed', targetedLogicalFilenames)
+          return res.json(
+            askMatriyaControlledFailure(userLang, 'document_unavailable', {
+              missing_files: targetedLogicalFilenames
+            })
           );
         }
         const pseudoRowsForGate = loaded.map((it, i) => ({
@@ -1027,8 +1046,10 @@ ${fileContext}`;
       let relevant = filterChunksByRetrievalSimilarityThreshold(searchResults || []);
       relevant = filterRowsToTargetFilenames(relevant, targetedLogicalFilenames);
       if (mentionedDocNames.length > 0 && targetedLogicalFilenames.length === 0) {
-        return res.status(422).json(
-          askMatriyaSystemErrorPayload(userLang, 'file_not_indexed', mentionedDocNames)
+        return res.json(
+          askMatriyaControlledFailure(userLang, 'document_unavailable', {
+            missing_files: mentionedDocNames
+          })
         );
       }
       if (!relevant.length) {
@@ -1043,11 +1064,7 @@ ${fileContext}`;
           });
         }
         return res.status(422).json({
-          error: 'INSUFFICIENT_EVIDENCE',
-          message: 'INSUFFICIENT_EVIDENCE',
-          status: 'INSUFFICIENT_EVIDENCE',
-          reply: userLang === 'he' ? RAG_INSUFFICIENT_SUPPORT_MESSAGE_HE : 'There is no supporting information in the system for this question.',
-          sources: [],
+          ...askMatriyaControlledFailure(userLang, 'no_relevant_information'),
           retrieval_similarity_gate: true
         });
       }
@@ -1076,10 +1093,7 @@ ${fileContext}`;
           });
         }
         return res.status(422).json({
-          error: 'INSUFFICIENT_EVIDENCE',
-          message: 'INSUFFICIENT_EVIDENCE',
-          status: 'INSUFFICIENT_EVIDENCE',
-          sources: [],
+          ...askMatriyaControlledFailure(userLang, 'no_relevant_information'),
           retrieval_similarity_gate: true
         });
       }
@@ -1187,7 +1201,7 @@ ${fileContext}`;
       });
     } catch (e) {
       logger.error(`Ask Matriya all_files RAG error: ${e.message}`);
-      return res.status(500).json({ error: e.message || 'Ask all files failed' });
+      return res.json(askMatriyaControlledFailure(userLang, 'processing_error'));
     }
   }
   if (filenames.length === 0 && files.length === 0) {
@@ -1220,8 +1234,10 @@ ${fileContext}`;
       fileContext += fileContext.length + chunk.length <= MAX_FILE_CONTEXT_CHARS ? chunk : chunk.slice(0, MAX_FILE_CONTEXT_CHARS - fileContext.length);
     }
     if (missingSelectedFilenames.length > 0) {
-      return res.status(422).json(
-        askMatriyaSystemErrorPayload(userLang, 'file_not_indexed', missingSelectedFilenames)
+      return res.json(
+        askMatriyaControlledFailure(userLang, 'document_unavailable', {
+          missing_files: missingSelectedFilenames
+        })
       );
     }
   } else if (files.length > 0) {
@@ -1253,8 +1269,10 @@ ${fileContext}`;
 
   if ((filenames.length > 0 || files.length > 0) && !String(fileContext || '').trim()) {
     const missing = filenames.length > 0 ? filenames : [];
-    return res.status(422).json(
-      askMatriyaSystemErrorPayload(userLang, 'file_not_indexed', missing)
+    return res.json(
+      askMatriyaControlledFailure(userLang, 'document_unavailable', {
+        missing_files: missing
+      })
     );
   }
 
@@ -1353,9 +1371,7 @@ ${fileContext}`
     const status = e.response?.status;
     const msg = e.response?.data?.error?.message || e.message || "OpenAI request failed";
     logger.error(`Ask Matriya OpenAI error: ${msg}`);
-    return res.status(status === 401 ? 401 : status === 429 ? 429 : 500).json({
-      error: msg
-    });
+    return res.json(askMatriyaControlledFailure(userLang, 'processing_error'));
   }
 });
 
