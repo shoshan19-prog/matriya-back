@@ -26,6 +26,10 @@ HF_MODEL=microsoft/phi-2
 # Optional: OpenAI for better embeddings (recommended)
 OPENAI_API_KEY=your-openai-api-key
 
+# Optional: manager backend URL for Ask Matriya project/material metadata fallback
+# Example: https://your-maneger-back.vercel.app
+# MANEGER_BACK_URL=
+
 # JWT Secret (generate a random string)
 JWT_SECRET=your-random-secret-key-here
 

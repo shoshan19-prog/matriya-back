@@ -4,13 +4,13 @@
 import express from 'express';
 import cors from 'cors';
 import multer from 'multer';
-import { Op } from 'sequelize';
+import { Op, QueryTypes } from 'sequelize';
 import { fileURLToPath } from 'url';
 import path, { dirname, join } from 'path';
 import { existsSync, mkdirSync, unlinkSync } from 'fs';
 import settings from './config.js';
 import RAGService from './ragService.js';
-import { initDb, SearchHistory, ResearchSession, ResearchAuditLog, PolicyAuditLog, DecisionAuditLog, NoiseEvent, IntegrityCycleSnapshot, Experiment, EXPERIMENT_OUTCOMES } from './database.js';
+import { initDb, getDb, SearchHistory, ResearchSession, ResearchAuditLog, PolicyAuditLog, DecisionAuditLog, NoiseEvent, IntegrityCycleSnapshot, Experiment, EXPERIMENT_OUTCOMES } from './database.js';
 import { authRouter, getCurrentUser, requireAuth } from './authEndpoints.js';
 import DocumentProcessor from './documentProcessor.js';
 import axios from 'axios';
@@ -71,6 +71,11 @@ import { RAG_INSUFFICIENT_SUPPORT_MESSAGE_HE } from './lib/ragEvidenceFailSafe.j
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
+const DEFAULT_LOCAL_MANEGER_BACK_URL =
+  process.env.VERCEL === '1' || process.env.VERCEL === 'true' || process.env.VERCEL_ENV
+    ? ''
+    : 'http://127.0.0.1:8001';
+const MANEGER_BACK_URL = (process.env.MANEGER_BACK_URL || process.env.MANAGER_BACK_URL || DEFAULT_LOCAL_MANEGER_BACK_URL).replace(/\/$/, '');
 
 // Initialize Express app
 const app = express();
@@ -763,7 +768,7 @@ const RAG_MEASUREMENT_SCHEMA_RULES = [
 ].join(' ');
 
 const ASK_MATRIYA_STRICT_DOCUMENT_ONLY_RULES = [
-  'Grounding (mandatory): Use ONLY the text under "Documents:" below as your source of truth.',
+  'Grounding (mandatory): Use ONLY the text under "Documents:" and "Project Metadata:" below as your source of truth.',
   'Do NOT use outside knowledge, training data, or the open web: no extra facts, names, dates, laws, definitions, or background that do not appear in those documents.',
   'You may paraphrase or quote only what is in the documents. Simple inferences are allowed only when they follow directly from stated text (e.g. counting or comparing numbers that appear in the documents).',
   "If the documents do not contain enough information to answer, say so clearly in the user's language (Hebrew or English) — do NOT fill gaps with general knowledge.",
@@ -775,6 +780,198 @@ function detectAskMatriyaUserLanguage(message) {
   const text = String(message || '');
   if (/[\u0590-\u05FF]/.test(text)) return 'he';
   return 'en';
+}
+
+async function loadAskMatriyaProjectMetadataContextFromDb(userId) {
+  const db = getDb();
+  if (!db) return null;
+  try {
+    const projects = await db.query(
+      `SELECT id::text AS id, name, COALESCE(description, '') AS description
+       FROM projects
+       ORDER BY name ASC
+       LIMIT 1000`,
+      { type: QueryTypes.SELECT }
+    );
+
+    if (!Array.isArray(projects) || projects.length === 0) {
+      return { text: '', projects_count: 0, materials_count: 0 };
+    }
+
+    const memberSet = new Set();
+    if (userId != null) {
+      const membershipRows = await db.query(
+        `SELECT project_id::text AS project_id
+         FROM project_members
+         WHERE user_id = :user_id`,
+        {
+          replacements: { user_id: Number(userId) || userId },
+          type: QueryTypes.SELECT
+        }
+      );
+      for (const row of membershipRows || []) {
+        if (row && row.project_id) memberSet.add(String(row.project_id));
+      }
+    }
+
+    const materials = await db.query(
+      `SELECT
+         COALESCE(ml.name, '') AS material_name,
+         COALESCE(ml.role_or_function, '') AS role_or_function,
+         p.id::text AS project_id,
+         p.name AS project_name
+       FROM material_library ml
+       JOIN projects p ON p.id = ml.project_id
+       ORDER BY p.name ASC, ml.name ASC
+       LIMIT 6000`,
+      { type: QueryTypes.SELECT }
+    );
+
+    const projectLines = projects.map((p) => {
+      const mem = memberSet.has(String(p.id)) ? 'member' : 'not_member';
+      const desc = String(p.description || '').trim();
+      return `- [${p.id}] ${String(p.name || '').trim() || 'Untitled'} (${mem})${desc ? ` — ${desc.slice(0, 140)}` : ''}`;
+    });
+    const materialLines = (materials || []).map((m) => {
+      const mat = String(m.material_name || '').trim();
+      if (!mat) return null;
+      const role = String(m.role_or_function || '').trim();
+      return `- ${mat} -> ${String(m.project_name || '').trim() || 'Unknown'} [${String(m.project_id || '').trim()}]${role ? ` | role: ${role}` : ''}`;
+    }).filter(Boolean);
+
+    const header = [
+      'All projects in system:',
+      ...projectLines,
+      '',
+      'Material ownership map (material -> project):',
+      ...(materialLines.length ? materialLines : ['- (no material_library rows)'])
+    ].join('\n');
+
+    return {
+      text: header.slice(0, 38000),
+      projects_count: projects.length,
+      materials_count: materialLines.length
+    };
+  } catch (e) {
+    logger.warn(`Ask Matriya project metadata context unavailable (DB): ${e.message}`);
+    return null;
+  }
+}
+
+async function loadAskMatriyaProjectMetadataContextFromManegerApi(authHeader) {
+  if (!MANEGER_BACK_URL) return null;
+  const headers = {};
+  if (authHeader) headers.Authorization = authHeader;
+  try {
+    const projectsRes = await axios.get(`${MANEGER_BACK_URL}/api/projects`, {
+      headers,
+      timeout: 20000
+    });
+    const projects = Array.isArray(projectsRes.data?.projects) ? projectsRes.data.projects : [];
+    if (projects.length === 0) {
+      return { text: '', projects_count: 0, materials_count: 0 };
+    }
+    const perProject = await Promise.allSettled(
+      projects.slice(0, 300).map((p) =>
+        axios
+          .get(`${MANEGER_BACK_URL}/api/projects/${p.id}/materials-overview`, {
+            headers,
+            timeout: 20000
+          })
+          .then((r) => ({ project: p, overview: r.data }))
+      )
+    );
+    const materialLines = [];
+    for (const item of perProject) {
+      if (item.status !== 'fulfilled') continue;
+      const project = item.value.project || {};
+      const rows = Array.isArray(item.value.overview?.materials) ? item.value.overview.materials : [];
+      for (const row of rows) {
+        const mat = String(row.material_name || '').trim();
+        if (!mat) continue;
+        const role = String(row.role_or_function || '').trim();
+        materialLines.push(
+          `- ${mat} -> ${String(project.name || '').trim() || 'Unknown'} [${String(project.id || '').trim()}]${role ? ` | role: ${role}` : ''}`
+        );
+      }
+    }
+    const projectLines = projects.map((p) => {
+      const desc = String(p.description || '').trim();
+      return `- [${String(p.id || '').trim()}] ${String(p.name || '').trim() || 'Untitled'}${desc ? ` — ${desc.slice(0, 140)}` : ''}`;
+    });
+    const text = [
+      'All projects in system:',
+      ...projectLines,
+      '',
+      'Material ownership map (material -> project):',
+      ...(materialLines.length ? materialLines : ['- (no material_library rows)'])
+    ].join('\n');
+    return {
+      text: text.slice(0, 38000),
+      projects_count: projects.length,
+      materials_count: materialLines.length
+    };
+  } catch (e) {
+    logger.warn(`Ask Matriya project metadata context unavailable (maneger API): ${e.message}`);
+    return null;
+  }
+}
+
+async function loadAskMatriyaProjectMetadataContext(userId, authHeader) {
+  const fromDb = await loadAskMatriyaProjectMetadataContextFromDb(userId);
+  if (fromDb && String(fromDb.text || '').trim()) return fromDb;
+  const fromApi = await loadAskMatriyaProjectMetadataContextFromManegerApi(authHeader);
+  if (fromApi && String(fromApi.text || '').trim()) return fromApi;
+  return fromDb || fromApi || null;
+}
+
+function isAskMatriyaProjectMaterialIntent(message) {
+  const text = String(message || '').toLowerCase();
+  if (!text.trim()) return false;
+  return /project|projects|material|materials|פרויקט|פרויקטים|חומר|חומרים|ספריית חומרים|material library|belongs to/.test(text);
+}
+
+async function answerAskMatriyaFromProjectMetadata({ message, userLang, openaiKey, projectMetadataText }) {
+  const context = String(projectMetadataText || '').trim();
+  if (!context) return '';
+  if (!openaiKey) {
+    if (userLang === 'he') {
+      return `להלן המידע הקיים במערכת לגבי שיוך חומרים לפרויקטים:\n\n${context}`;
+    }
+    return `Here is the project/material ownership information available in the system:\n\n${context}`;
+  }
+  try {
+    const response = await axios.post(
+      'https://api.openai.com/v1/chat/completions',
+      {
+        model: 'gpt-4o-mini',
+        messages: [
+          {
+            role: 'system',
+            content:
+              `Reply in ${userLang === 'he' ? 'Hebrew' : 'English'} only. ` +
+              'Use ONLY the "Project Metadata" context. ' +
+              'Do not use outside knowledge. If the requested mapping/list is missing, say so clearly.\n\n' +
+              `Project Metadata:\n${context}`
+          },
+          { role: 'user', content: String(message || '').trim().slice(0, 6000) }
+        ],
+        max_tokens: 900,
+        temperature: 0.2
+      },
+      {
+        headers: {
+          Authorization: `Bearer ${openaiKey}`,
+          'Content-Type': 'application/json'
+        },
+        timeout: 60000
+      }
+    );
+    return String(response.data?.choices?.[0]?.message?.content || '').trim();
+  } catch (e) {
+    logger.warn(`Ask Matriya project metadata completion failed: ${e.message}`);
+    return '';
+  }
 }
 
 function basenameLower(name) {
@@ -954,6 +1151,34 @@ app.post("/ask-matriya", requireAuth, askMatriyaMulter, async (req, res) => {
   const MAX_FILE_CONTEXT_CHARS = 80000;
   const MAX_HISTORY_MESSAGES = 20;
   const openaiKey = settings.OPENAI_API_KEY;
+  const projectMaterialIntent = isAskMatriyaProjectMaterialIntent(message);
+  const currentUser = projectMaterialIntent ? await getCurrentUser(req) : null;
+  const projectMetadata = projectMaterialIntent
+    ? await loadAskMatriyaProjectMetadataContext(currentUser?.id, req.headers?.authorization || '')
+    : null;
+  const projectMetadataBlock = String(projectMetadata?.text || '').trim()
+    ? `\n\nProject Metadata:\n${String(projectMetadata.text).trim()}\n`
+    : '';
+  if (projectMaterialIntent && String(projectMetadata?.text || '').trim()) {
+    const metadataReply = await answerAskMatriyaFromProjectMetadata({
+      message,
+      userLang,
+      openaiKey,
+      projectMetadataText: projectMetadata.text
+    });
+    if (metadataReply) {
+      return res.json({
+        reply: normalizeNoRelevantReply(userLang, metadataReply),
+        sources: [
+          {
+            filename: 'Project Metadata (projects/materials)',
+            excerpt: String(projectMetadata.text || '').slice(0, 3500)
+          }
+        ],
+        mode: 'project_metadata_direct'
+      });
+    }
+  }
   if (allFilesScopeRequested && filenames.length === 0 && files.length === 0) {
     // "All files" scope: use RAG retrieval over the full indexed collection (same model path as document RAG),
     // instead of injecting massive full-text context into this route.
@@ -1000,6 +1225,7 @@ app.post("/ask-matriya", requireAuth, askMatriyaMulter, async (req, res) => {
         const systemContent = `The user asked about specific document(s) by filename.
 
 ${ASK_MATRIYA_STRICT_DOCUMENT_ONLY_RULES}
+${projectMetadataBlock}
 
 Documents:
 ${fileContext}`;
@@ -1069,6 +1295,26 @@ ${fileContext}`;
         );
       }
       if (!relevant.length) {
+        if (isAskMatriyaProjectMaterialIntent(message) && String(projectMetadata?.text || '').trim()) {
+          const metadataReply = await answerAskMatriyaFromProjectMetadata({
+            message,
+            userLang,
+            openaiKey,
+            projectMetadataText: projectMetadata.text
+          });
+          if (metadataReply) {
+            return res.json({
+              reply: normalizeNoRelevantReply(userLang, metadataReply),
+              sources: [
+                {
+                  filename: 'Project Metadata (projects/materials)',
+                  excerpt: String(projectMetadata.text || '').slice(0, 3500)
+                }
+              ],
+              mode: 'all_files_project_metadata'
+            });
+          }
+        }
         if (comparisonRequested) {
           return res.status(422).json({
             error: 'INVALID_COMPARISON_INPUT',
@@ -1159,6 +1405,7 @@ ${fileContext}`;
 
 ${ASK_MATRIYA_STRICT_DOCUMENT_ONLY_RULES}
 ${spreadsheetHint}${comparisonHint}
+${projectMetadataBlock}
 Documents:
 ${fileContext}`;
           const MAX_MESSAGE_CONTENT_CHARS = 4000;
@@ -1335,6 +1582,7 @@ ${fileContext}`;
 
 ${ASK_MATRIYA_STRICT_DOCUMENT_ONLY_RULES}
 ${spreadsheetHint}${comparisonHint}
+${projectMetadataBlock}
 Documents:
 ${fileContext}`
     : "You are a helpful research assistant. Reply in the same language as the user's latest message (Hebrew or English). Do not use Arabic.";
