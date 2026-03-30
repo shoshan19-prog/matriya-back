@@ -57,7 +57,10 @@ import { buildAnswerSourcesFromRetrieval } from './lib/answerAttribution.js';
 import {
   filterRetrievalRowsByAnswerBinding
 } from './lib/answerSourceBindingFilter.js';
-import { evaluateComparisonInputPreconditions } from './lib/domainAndGenerationGate.js';
+import {
+  evaluateComparisonInputPreconditions,
+  evaluateComparisonOutputMode
+} from './lib/domainAndGenerationGate.js';
 import {
   tryDavidAcceptanceFixture,
   isDavidFormulationInsufficientQuestion,
@@ -745,7 +748,8 @@ const ASK_MATRIYA_EXCEL_CONTEXT_PREAMBLE =
 
 /** Ask Matriya: model must not answer from general knowledge — only selected document text. */
 const RAG_MEASUREMENT_SCHEMA_RULES = [
-  'Apply the JSON schema ONLY when the user explicitly asks for measurements/comparisons (e.g. viscosity, pH, cps, percentages, compare A vs B, deltas).',
+  'Apply the JSON schema ONLY for explicit measurement extraction requests (e.g. viscosity, pH, cps, percentages).',
+  'Do NOT use JSON schema for A/B comparison-table requests; comparison mode is table-only or INVALID.',
   'If the question is not explicitly a measurement/comparison request, DO NOT output JSON and answer in normal prose.',
   'When JSON mode is required, output a strict JSON object first (no prose before it) with keys:',
   '{"measurements":[],"comparisons":[],"evidence_links":[],"document_classification":[],"notes":[]}.',
@@ -878,6 +882,7 @@ const askMatriyaMulter = (req, res, next) => {
 app.post("/ask-matriya", requireAuth, askMatriyaMulter, async (req, res) => {
   const message = (req.body?.message ?? '').trim();
   const userLang = detectAskMatriyaUserLanguage(message);
+  const comparisonRequested = evaluateComparisonInputPreconditions(message, []).required;
   if (!message) {
     return res.status(400).json({ error: "message is required" });
   }
@@ -949,7 +954,6 @@ app.post("/ask-matriya", requireAuth, askMatriyaMulter, async (req, res) => {
               ? 'לא ניתן לבצע השוואת A/B כי חסרים שני צדדי formulation אמיתיים עם רכיבים ואחוזים תקינים.'
               : 'Cannot run A/B comparison: missing two valid formulation sides with percentage composition.',
             status: 'INVALID_COMPARISON_INPUT',
-            reply: userLang === 'he' ? RAG_INSUFFICIENT_SUPPORT_MESSAGE_HE : 'There is no supporting information in the system for this question.',
             sources: []
           });
         }
@@ -999,6 +1003,17 @@ ${fileContext}`;
           metadata: { filename: it.filename },
           document: String(it.text || '').slice(0, 3500)
         }));
+        const targetedOutGate = evaluateComparisonOutputMode(message, reply);
+        if (targetedOutGate.required && !targetedOutGate.ok) {
+          return res.status(422).json({
+            error: 'INVALID_COMPARISON_INPUT',
+            message: userLang === 'he'
+              ? 'לא ניתן לבצע השוואת A/B: הקלט לא עומד בכללי formulation או לא ניתן להחזיר טבלת Δ תקינה בלבד.'
+              : 'Cannot run A/B comparison: input is not valid formulation data or table-only output cannot be produced.',
+            status: 'INVALID_COMPARISON_INPUT',
+            sources: []
+          });
+        }
         return res.json({
           reply,
           sources: buildAnswerSourcesFromRetrieval(pseudoRows),
@@ -1017,6 +1032,16 @@ ${fileContext}`;
         );
       }
       if (!relevant.length) {
+        if (comparisonRequested) {
+          return res.status(422).json({
+            error: 'INVALID_COMPARISON_INPUT',
+            message: userLang === 'he'
+              ? 'לא ניתן לבצע השוואת A/B: אין מספיק מידע formulation תקין להשוואה.'
+              : 'Cannot run A/B comparison: insufficient valid formulation evidence.',
+            status: 'INVALID_COMPARISON_INPUT',
+            sources: []
+          });
+        }
         return res.status(422).json({
           error: 'INSUFFICIENT_EVIDENCE',
           message: 'INSUFFICIENT_EVIDENCE',
@@ -1034,12 +1059,22 @@ ${fileContext}`;
             ? 'לא ניתן לבצע השוואה כי תנאי ה־formulation לא מתקיימים (שני צדדים, רכיבים, אחוזים, ללא metadata בלבד).'
             : 'Cannot run comparison: formulation preconditions are not satisfied.',
           status: 'INVALID_COMPARISON_INPUT',
-          reply: userLang === 'he' ? RAG_INSUFFICIENT_SUPPORT_MESSAGE_HE : 'There is no supporting information in the system for this question.',
           sources: [],
           generation_blocked: true
         });
       }
       if (docResult?.generation_blocked) {
+        if (comparisonRequested) {
+          return res.status(422).json({
+            error: 'INVALID_COMPARISON_INPUT',
+            message: userLang === 'he'
+              ? 'לא ניתן לבצע השוואת A/B: אין מספיק מידע formulation תקין להשוואה.'
+              : 'Cannot run A/B comparison: insufficient valid formulation evidence.',
+            status: 'INVALID_COMPARISON_INPUT',
+            sources: [],
+            generation_blocked: true
+          });
+        }
         return res.status(422).json({
           error: 'INSUFFICIENT_EVIDENCE',
           message: 'INSUFFICIENT_EVIDENCE',
@@ -1088,7 +1123,7 @@ ${fileContext}`;
             ? '\n\nSpreadsheets: Lines may be tab-separated rows from Excel; sheet titles may appear as [גיליון: …]. This tabular text is valid document content. You MUST answer and summarize from it (columns, headers, values) still using ONLY that text—no outside knowledge. Never claim you lack the document when the Documents section contains non-empty spreadsheet text.\n'
             : '';
           const comparisonHint = comparisonQuery
-            ? `\n\nComparison: If the user asks to compare two compositions/versions with percentages, respond with one Markdown table using the user's language headers (${userLang === 'he' ? 'רכיב | % (A) | % (B) | Δ (B−A)' : 'Component | % (A) | % (B) | Δ (B−A)'}). Δ is in percentage points. Use ONLY values present in the Documents text; use "—" when a value is missing. Do not invent numbers.\n`
+            ? `\n\nComparison mode is HARD-GATED: output must be exactly one Markdown table and nothing else (${userLang === 'he' ? 'רכיב | % (A) | % (B) | Δ (B−A)' : 'Component | % (A) | % (B) | Δ (B−A)'}). If strict comparison prerequisites are not satisfied, output exactly: INVALID. Never return free-text explanations in comparison mode.\n`
             : '';
           const systemContent = `The user selected all indexed documents. The text below is retrieved context from the local index.
 
@@ -1131,6 +1166,18 @@ ${fileContext}`;
         }
       }
       if (!reply) reply = fallbackInsufficient;
+      const allFilesOutGate = evaluateComparisonOutputMode(message, reply);
+      if (allFilesOutGate.required && !allFilesOutGate.ok) {
+        return res.status(422).json({
+          error: 'INVALID_COMPARISON_INPUT',
+          message: userLang === 'he'
+            ? 'לא ניתן לבצע השוואת A/B: הקלט לא עומד בכללי formulation או לא ניתן להחזיר טבלת Δ תקינה בלבד.'
+            : 'Cannot run A/B comparison: input is not valid formulation data or table-only output cannot be produced.',
+          status: 'INVALID_COMPARISON_INPUT',
+          sources: [],
+          generation_blocked: true
+        });
+      }
       return res.json({
         reply,
         sources,
@@ -1231,7 +1278,6 @@ ${fileContext}`;
           ? 'לא ניתן לבצע השוואת A/B עבור המסמכים שנבחרו כי חסרים שני צדדי formulation אמיתיים עם אחוזים.'
           : 'Cannot run A/B comparison for selected documents: missing valid formulation percentage sides.',
         status: 'INVALID_COMPARISON_INPUT',
-        reply: userLang === 'he' ? RAG_INSUFFICIENT_SUPPORT_MESSAGE_HE : 'There is no supporting information in the system for this question.',
         sources: []
       });
     }
@@ -1246,7 +1292,7 @@ ${fileContext}`;
     ? '\n\nSpreadsheets: Lines may be tab-separated rows from Excel; sheet titles may appear as [גיליון: …]. This tabular text is valid document content. You MUST answer and summarize from it (columns, headers, values) still using ONLY that text—no outside knowledge. Never claim you lack the document when the Documents section contains non-empty spreadsheet text.\n'
     : '';
   const comparisonHint = comparisonQuery
-    ? `\n\nComparison: If the user asks to compare two compositions/versions with percentages, respond with one Markdown table using the user's language headers (${userLang === 'he' ? 'רכיב | % (A) | % (B) | Δ (B−A)' : 'Component | % (A) | % (B) | Δ (B−A)'}). Δ is in percentage points. Use ONLY values present in the Documents text; use "—" when a value is missing. Do not invent numbers.\n`
+    ? `\n\nComparison mode is HARD-GATED: output must be exactly one Markdown table and nothing else (${userLang === 'he' ? 'רכיב | % (A) | % (B) | Δ (B−A)' : 'Component | % (A) | % (B) | Δ (B−A)'}). If strict comparison prerequisites are not satisfied, output exactly: INVALID. Never return free-text explanations in comparison mode.\n`
     : '';
 
   const systemContent = fileContext
@@ -1290,6 +1336,17 @@ ${fileContext}`
       }
     );
     const reply = response.data?.choices?.[0]?.message?.content?.trim() || "";
+    const selectedOutGate = evaluateComparisonOutputMode(message, reply);
+    if (selectedOutGate.required && !selectedOutGate.ok) {
+      return res.status(422).json({
+        error: 'INVALID_COMPARISON_INPUT',
+        message: userLang === 'he'
+          ? 'לא ניתן לבצע השוואת A/B: הקלט לא עומד בכללי formulation או לא ניתן להחזיר טבלת Δ תקינה בלבד.'
+          : 'Cannot run A/B comparison: input is not valid formulation data or table-only output cannot be produced.',
+        status: 'INVALID_COMPARISON_INPUT',
+        sources: []
+      });
+    }
     // Ask Matriya: no RAG fail-safe sanitizer — the model already sees full document text in the system message.
     return res.json({ reply, sources: [] });
   } catch (e) {

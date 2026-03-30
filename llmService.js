@@ -6,7 +6,8 @@ import logger from './logger.js';
 import settings from './config.js';
 
 const RAG_MEASUREMENT_SCHEMA_RULES = [
-  'Apply the JSON schema ONLY when the user explicitly asks for measurements/comparisons (e.g. viscosity, pH, cps, percentages, compare A vs B, deltas).',
+  'Apply the JSON schema ONLY for explicit measurement extraction requests (e.g. viscosity, pH, cps, percentages).',
+  'Do NOT use JSON schema for A/B comparison-table requests; comparison mode is table-only or INVALID.',
   'If the question is not explicitly a measurement/comparison request, DO NOT output JSON and answer in normal prose.',
   'When JSON mode is required, output a strict JSON object first (no prose before it) with these keys:',
   '{"measurements":[],"comparisons":[],"evidence_links":[],"document_classification":[],"notes":[]}.',

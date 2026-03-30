@@ -23,7 +23,8 @@ import { hasFileSearchEvidence, hasVectorSearchEvidence } from './lib/ragEvidenc
 import {
   filterSnippetsByQueryDomain,
   filterRetrievalRowsByQueryDomain,
-  evaluateConclusionBeforeGeneration
+  evaluateConclusionBeforeGeneration,
+  evaluateComparisonOutputMode
 } from './lib/domainAndGenerationGate.js';
 import { detectStructuredDataInSnippets } from './lib/detectStructuredFormulationChunks.js';
 
@@ -476,6 +477,19 @@ class RAGService {
         }
         const context = contextParts.length ? contextParts.join('\n') : '';
         const answer = useLlm ? answerText || null : null;
+        const outGateCloud = evaluateComparisonOutputMode(query, answer);
+        if (outGateCloud.required && !outGateCloud.ok) {
+          return {
+            query,
+            results: [],
+            results_count: 0,
+            answer: null,
+            context_used: 0,
+            context: '',
+            error: outGateCloud.code || 'INVALID_COMPARISON_INPUT',
+            generation_blocked: true
+          };
+        }
         if (!mapped.length && !answer && !context) {
           throw new Error('No cloud document search results');
         }
@@ -565,6 +579,19 @@ class RAGService {
     if (useLlm && this.llmService.isAvailable()) {
       logger.info("Generating answer using LLM...");
       answer = await this.llmService.generateAnswer(query, context, 500, citationOnly);
+      const outGate = evaluateComparisonOutputMode(query, answer);
+      if (outGate.required && !outGate.ok) {
+        return {
+          query: query,
+          results: [],
+          results_count: 0,
+          answer: null,
+          context_used: 0,
+          context: '',
+          error: outGate.code || 'INVALID_COMPARISON_INPUT',
+          generation_blocked: true
+        };
+      }
     } else if (useLlm) {
       logger.warn("LLM service not available, returning search results only");
     }
