@@ -837,6 +837,23 @@ function filterRowsToTargetFilenames(rows, targetFilenames) {
   });
 }
 
+function askMatriyaSystemErrorPayload(userLang, reason, missingFiles = []) {
+  const he = userLang === 'he';
+  return {
+    error: 'SYSTEM_ERROR',
+    status: 'SYSTEM_ERROR',
+    reason: String(reason || 'file_not_indexed'),
+    action: 'reindex required / remove from selection',
+    message: he
+      ? 'כשל מערכת באינדוקס/שליפה: המסמך שנבחר לא נמצא באינדקס או לא נשלף כראוי.'
+      : 'System retrieval/index error: selected document is missing from index or could not be retrieved.',
+    diagnostics: {
+      missing_files: Array.isArray(missingFiles) ? missingFiles.filter(Boolean) : []
+    },
+    sources: []
+  };
+}
+
 /**
  * Ask Matriya: full indexed text (or first chunk fallback) into the chat prompt — not vector RAG retrieval.
  */
@@ -915,13 +932,9 @@ app.post("/ask-matriya", requireAuth, askMatriyaMulter, async (req, res) => {
           if (text) loaded.push({ filename: fn, text });
         }
         if (!loaded.length) {
-          return res.status(422).json({
-            error: 'INSUFFICIENT_EVIDENCE',
-            message: 'INSUFFICIENT_EVIDENCE',
-            status: 'INSUFFICIENT_EVIDENCE',
-            reply: userLang === 'he' ? RAG_INSUFFICIENT_SUPPORT_MESSAGE_HE : 'There is no supporting information in the system for this question.',
-            sources: []
-          });
+          return res.status(422).json(
+            askMatriyaSystemErrorPayload(userLang, 'file_not_indexed', targetedLogicalFilenames)
+          );
         }
         const pseudoRowsForGate = loaded.map((it, i) => ({
           id: `targeted-gate-${i + 1}`,
@@ -999,14 +1012,9 @@ ${fileContext}`;
       let relevant = filterChunksByRetrievalSimilarityThreshold(searchResults || []);
       relevant = filterRowsToTargetFilenames(relevant, targetedLogicalFilenames);
       if (mentionedDocNames.length > 0 && targetedLogicalFilenames.length === 0) {
-        const m = mentionedDocNames.join(', ');
-        return res.status(404).json({
-          error: 'FILE_NOT_FOUND_IN_INDEX',
-          message: userLang === 'he'
-            ? `לא מצאתי במאגר קובץ בשם: ${m}. בדקו שהקובץ מופיע בטבלה.`
-            : `I could not find this file in the indexed table: ${m}.`,
-          sources: []
-        });
+        return res.status(422).json(
+          askMatriyaSystemErrorPayload(userLang, 'file_not_indexed', mentionedDocNames)
+        );
       }
       if (!relevant.length) {
         return res.status(422).json({
@@ -1019,7 +1027,7 @@ ${fileContext}`;
         });
       }
       const docResult = await rag.generateAnswer(message, nPre, targetFilter, true, relevant);
-      if (docResult?.generation_blocked || docResult?.error === 'INVALID_COMPARISON_INPUT') {
+      if (docResult?.error === 'INVALID_COMPARISON_INPUT') {
         return res.status(422).json({
           error: 'INVALID_COMPARISON_INPUT',
           message: userLang === 'he'
@@ -1029,6 +1037,15 @@ ${fileContext}`;
           reply: userLang === 'he' ? RAG_INSUFFICIENT_SUPPORT_MESSAGE_HE : 'There is no supporting information in the system for this question.',
           sources: [],
           generation_blocked: true
+        });
+      }
+      if (docResult?.generation_blocked) {
+        return res.status(422).json({
+          error: 'INSUFFICIENT_EVIDENCE',
+          message: 'INSUFFICIENT_EVIDENCE',
+          status: 'INSUFFICIENT_EVIDENCE',
+          sources: [],
+          retrieval_similarity_gate: true
         });
       }
       let rows = filterChunksByRetrievalSimilarityThreshold(docResult.results || []);
@@ -1141,16 +1158,24 @@ ${fileContext}`;
   let contextHasSpreadsheet = false;
   if (filenames.length > 0) {
     const rag = getRagService();
+    const missingSelectedFilenames = [];
     for (const fn of filenames) {
       if (fileContext.length >= MAX_FILE_CONTEXT_CHARS) break;
       const text = await loadIndexedTextForAskMatriya(rag, fn);
-      if (text) {
-        const sheet = isAskMatriyaSpreadsheetFilename(fn);
-        if (sheet) contextHasSpreadsheet = true;
-        const pre = sheet ? ASK_MATRIYA_EXCEL_CONTEXT_PREAMBLE : '';
-        const chunk = `\n--- ${fn} ---\n${pre}${text}\n`;
-        fileContext += fileContext.length + chunk.length <= MAX_FILE_CONTEXT_CHARS ? chunk : chunk.slice(0, MAX_FILE_CONTEXT_CHARS - fileContext.length);
+      if (!text) {
+        missingSelectedFilenames.push(fn);
+        continue;
       }
+      const sheet = isAskMatriyaSpreadsheetFilename(fn);
+      if (sheet) contextHasSpreadsheet = true;
+      const pre = sheet ? ASK_MATRIYA_EXCEL_CONTEXT_PREAMBLE : '';
+      const chunk = `\n--- ${fn} ---\n${pre}${text}\n`;
+      fileContext += fileContext.length + chunk.length <= MAX_FILE_CONTEXT_CHARS ? chunk : chunk.slice(0, MAX_FILE_CONTEXT_CHARS - fileContext.length);
+    }
+    if (missingSelectedFilenames.length > 0) {
+      return res.status(422).json(
+        askMatriyaSystemErrorPayload(userLang, 'file_not_indexed', missingSelectedFilenames)
+      );
     }
   } else if (files.length > 0) {
     const tempPaths = [];
@@ -1180,12 +1205,10 @@ ${fileContext}`;
   }
 
   if ((filenames.length > 0 || files.length > 0) && !String(fileContext || '').trim()) {
-    return res.status(422).json({
-      error:
-        'לא נמצא טקסט מאונדקס עבור המסמכים שנבחרו. ודאו שהקובץ הועלה והאינדוקס הושלם, או העלו שוב.',
-      code: 'NO_INDEXED_TEXT',
-      sources: []
-    });
+    const missing = filenames.length > 0 ? filenames : [];
+    return res.status(422).json(
+      askMatriyaSystemErrorPayload(userLang, 'file_not_indexed', missing)
+    );
   }
 
   if (filenames.length > 0) {
