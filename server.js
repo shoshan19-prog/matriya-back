@@ -875,6 +875,21 @@ function askMatriyaControlledFailure(userLang, kind, details = {}) {
   };
 }
 
+function askMatriyaNoRelevantReply(userLang) {
+  return userLang === 'he'
+    ? 'אין מידע רלוונטי במסמכים שנבחרו.'
+    : 'No relevant information was found in the selected documents.';
+}
+
+function normalizeNoRelevantReply(userLang, replyText) {
+  const txt = String(replyText || '').trim();
+  if (!txt) return txt;
+  const noInfoRe =
+    /אין מידע|לא נמצא|לא מצאתי|אין במערכת מידע תומך|no relevant|not found in the selected documents|no supporting information/i;
+  if (noInfoRe.test(txt)) return askMatriyaNoRelevantReply(userLang);
+  return txt;
+}
+
 /**
  * Ask Matriya: full indexed text (or first chunk fallback) into the chat prompt — not vector RAG retrieval.
  */
@@ -1033,8 +1048,9 @@ ${fileContext}`;
             sources: []
           });
         }
+        const normalizedReply = normalizeNoRelevantReply(userLang, reply);
         return res.json({
-          reply,
+          reply: normalizedReply,
           sources: buildAnswerSourcesFromRetrieval(pseudoRows),
           mode: 'all_files_targeted_filename',
           target_filenames: targetedLogicalFilenames
@@ -1180,6 +1196,7 @@ ${fileContext}`;
         }
       }
       if (!reply) reply = fallbackInsufficient;
+      reply = normalizeNoRelevantReply(userLang, reply);
       const allFilesOutGate = evaluateComparisonOutputMode(message, reply);
       if (allFilesOutGate.required && !allFilesOutGate.ok) {
         return res.status(422).json({
@@ -1353,7 +1370,8 @@ ${fileContext}`
         timeout: 60000
       }
     );
-    const reply = response.data?.choices?.[0]?.message?.content?.trim() || "";
+    let reply = response.data?.choices?.[0]?.message?.content?.trim() || "";
+    reply = normalizeNoRelevantReply(userLang, reply);
     const selectedOutGate = evaluateComparisonOutputMode(message, reply);
     if (selectedOutGate.required && !selectedOutGate.ok) {
       return res.status(422).json({
