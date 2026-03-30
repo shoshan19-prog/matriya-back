@@ -30,7 +30,8 @@ class Settings {
   constructor() {
     // Vector Database Settings
     this.CHROMA_DB_PATH = process.env.CHROMA_DB_PATH || "./chroma_db";
-    this.COLLECTION_NAME = process.env.COLLECTION_NAME || "rag_documents";
+    // Keep local default aligned with production Matriya collection.
+    this.COLLECTION_NAME = process.env.COLLECTION_NAME || "documents";
     
     // Embedding Model (local)
     this.EMBEDDING_MODEL = process.env.EMBEDDING_MODEL || "sentence-transformers/all-MiniLM-L6-v2";

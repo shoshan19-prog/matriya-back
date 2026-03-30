@@ -43,6 +43,7 @@ import {
   getMatriyaOpenAiVectorStoreId,
   hydrateMatriyaOpenAiVectorStoreId,
   persistMatriyaOpenAiVectorStoreId,
+  getMatriyaOpenAiSyncFileMap,
   useOpenAiFileSearchEnabled,
   getOpenAiApiBase
 } from './lib/openaiMatriyaConfig.js';
@@ -69,6 +70,25 @@ const __dirname = dirname(__filename);
 
 // Initialize Express app
 const app = express();
+/** Prevent duplicate concurrent ingest for same logical filename. */
+const ingestInFlightByFilename = new Map();
+/** Prevent hot retry loops on permanently-bad files (invalid/corrupt format). */
+const ingestRecentFailuresByFilename = new Map();
+const INGEST_FAILURE_COOLDOWN_MS = Math.max(
+  60_000,
+  parseInt(process.env.INGEST_FAILURE_COOLDOWN_MS || '900000', 10) || 900000
+);
+
+function isLikelyNonRetryableIngestError(message) {
+  const m = String(message || '').toLowerCase();
+  return (
+    m.includes('invalid pdf structure') ||
+    m.includes('indexing all pdf objects') ||
+    m.includes("can't find end of central directory") ||
+    m.includes('is this a zip file') ||
+    m.includes('could not find the body element')
+  );
+}
 
 // CORS: must not combine origin: "*" with credentials: true (browsers block; looks like "no CORS header").
 // origin: true echoes the request Origin so preflight succeeds for matriya-front.vercel.app, localhost, etc.
@@ -285,7 +305,7 @@ app.get("/health", async (req, res) => {
     const info = await getRagService().getCollectionInfo();
     const metrics = getMetrics();
     const dbFingerprint = getDbFingerprint();
-    const collectionName = process.env.COLLECTION_NAME || "rag_documents";
+    const collectionName = settings.COLLECTION_NAME || "documents";
     return res.json({
       status: "healthy",
       vector_db: info,
@@ -574,7 +594,47 @@ app.post("/ingest/file", upload.single('file'), async (req, res) => {
   }
 
   try {
-    const result = await ragService.ingestFile(tempFilePath, displayFilename);
+    const failed = ingestRecentFailuresByFilename.get(displayFilename);
+    if (failed && Date.now() - failed.at < INGEST_FAILURE_COOLDOWN_MS) {
+      logger.warn(
+        `Skip ingest during failure cooldown (${Math.ceil((INGEST_FAILURE_COOLDOWN_MS - (Date.now() - failed.at)) / 1000)}s left): ${displayFilename}`
+      );
+      try {
+        if (existsSync(tempFilePath)) unlinkSync(tempFilePath);
+      } catch (_) {}
+      return res.status(200).json({
+        success: true,
+        message: "File recently failed to parse; duplicate retry skipped",
+        data: {
+          filename: displayFilename,
+          skipped_recent_failure: true,
+          last_error: failed.error,
+          retry_after_ms: Math.max(0, INGEST_FAILURE_COOLDOWN_MS - (Date.now() - failed.at))
+        }
+      });
+    }
+
+    if (ingestInFlightByFilename.has(displayFilename)) {
+      logger.warn(`Skip duplicate ingest while in-flight: ${displayFilename}`);
+      try {
+        if (existsSync(tempFilePath)) unlinkSync(tempFilePath);
+      } catch (_) {}
+      return res.json({
+        success: true,
+        message: "File ingest already in progress; duplicate request skipped",
+        data: {
+          filename: displayFilename,
+          skipped_duplicate_inflight: true
+        }
+      });
+    }
+
+    const ingestPromise = ragService.ingestFile(tempFilePath, displayFilename);
+    ingestInFlightByFilename.set(displayFilename, ingestPromise);
+    const result = await ingestPromise;
+    if (ingestInFlightByFilename.get(displayFilename) === ingestPromise) {
+      ingestInFlightByFilename.delete(displayFilename);
+    }
 
     try {
       if (existsSync(tempFilePath)) unlinkSync(tempFilePath);
@@ -583,6 +643,7 @@ app.post("/ingest/file", upload.single('file'), async (req, res) => {
     }
 
     if (result.success) {
+      ingestRecentFailuresByFilename.delete(displayFilename);
       // Matriya web UI calls POST /gpt-rag/sync after ingest — skip debounced server sync to avoid two
       // queued syncs (long client wait + stuck «מסנכרן»). API clients without the header still get auto-sync.
       const clientWillGptSync = String(req.get('x-matriya-client-gpt-sync') || '').trim() === '1';
@@ -597,10 +658,36 @@ app.post("/ingest/file", upload.single('file'), async (req, res) => {
         data: result
       });
     }
+    if (isLikelyNonRetryableIngestError(result.error)) {
+      ingestRecentFailuresByFilename.set(displayFilename, {
+        at: Date.now(),
+        error: result.error
+      });
+      return res.status(422).json({
+        error: result.error || 'Unprocessable file content',
+        non_retryable: true,
+        retry_after_ms: INGEST_FAILURE_COOLDOWN_MS
+      });
+    }
     return res.status(500).json({
       error: result.error || 'Unknown error during ingestion'
     });
   } catch (e) {
+    ingestInFlightByFilename.delete(displayFilename);
+    if (isLikelyNonRetryableIngestError(e?.message)) {
+      ingestRecentFailuresByFilename.set(displayFilename, {
+        at: Date.now(),
+        error: e.message
+      });
+      try {
+        if (existsSync(tempFilePath)) unlinkSync(tempFilePath);
+      } catch (_) {}
+      return res.status(422).json({
+        error: e.message,
+        non_retryable: true,
+        retry_after_ms: INGEST_FAILURE_COOLDOWN_MS
+      });
+    }
     logger.error(`Error ingesting file: ${e.message}`);
     logger.error(`Stack trace: ${e.stack}`);
     try {
@@ -656,18 +743,95 @@ const ASK_MATRIYA_EXCEL_CONTEXT_PREAMBLE =
   '[מקור: קובץ Excel — שברי רכיב (0–1) כבר הומרו לאחוזים (×100) בטקסט המאונדקס. שורה עם סיומת «INVALID OUTPUT: row sum not 100%±0.1» = סכום השברים בשורה לא בטווח 100%±0.1. השתמש בערכי האחוזים כפי שמוצגים; אל תציג שוב כשבר עשרוני מעל התו %.]\n';
 
 /** Ask Matriya: model must not answer from general knowledge — only selected document text. */
+const RAG_MEASUREMENT_SCHEMA_RULES = [
+  'When the question requires measurements/comparisons (e.g. viscosity, pH, cps, percentages), output a strict JSON object first (no prose before it) with keys:',
+  '{"measurements":[],"comparisons":[],"evidence_links":[],"document_classification":[],"notes":[]}.',
+  'Each measurement item must include: metric, value, unit, conditions (rpm, temperature_c, sample, stage), and source_ref.',
+  'CPS comparison rule (mandatory): compare cps values only when RPM exists and is equal on both sides; otherwise comparable=false with a clear reason.',
+  'RAG-to-experiment linkage: prioritize evidence where unit + conditions match; fallback to same metric+unit, then same metric only, while marking weaker confidence.',
+  'Document classification: classify each cited source as formulation | experiment_result | qc_data and add confidence high|medium|low.',
+  'For viscosity/pH conclusions, prioritize experiment_result and qc_data evidence over formulation-only text. For composition percentages, prioritize formulation evidence.',
+  'Cross-field consistency: do not merge values from different units/conditions into one conclusion. If evidence conflicts, report conflict explicitly in notes.',
+  'Use only the selected document text; do not invent values.'
+].join(' ');
+
 const ASK_MATRIYA_STRICT_DOCUMENT_ONLY_RULES = [
   'Grounding (mandatory): Use ONLY the text under "Documents:" below as your source of truth.',
   'Do NOT use outside knowledge, training data, or the open web: no extra facts, names, dates, laws, definitions, or background that do not appear in those documents.',
   'You may paraphrase or quote only what is in the documents. Simple inferences are allowed only when they follow directly from stated text (e.g. counting or comparing numbers that appear in the documents).',
   "If the documents do not contain enough information to answer, say so clearly in the user's language (Hebrew or English) — do NOT fill gaps with general knowledge.",
-  "Language: Reply in the same language as the user's latest message (Hebrew or English). If the user wrote in English, answer entirely in English; if in Hebrew, answer entirely in Hebrew. Keep short quotes from the documents in their original wording when needed. Do not use Arabic."
+  "Language: Reply in the same language as the user's latest message (Hebrew or English). If the user wrote in English, answer entirely in English; if in Hebrew, answer entirely in Hebrew. Keep short quotes from the documents in their original wording when needed. Do not use Arabic.",
+  RAG_MEASUREMENT_SCHEMA_RULES
 ].join('\n');
 
 function detectAskMatriyaUserLanguage(message) {
   const text = String(message || '');
   if (/[\u0590-\u05FF]/.test(text)) return 'he';
   return 'en';
+}
+
+function basenameLower(name) {
+  return String(name || '').split(/[/\\]/).filter(Boolean).pop()?.toLowerCase() || '';
+}
+
+function extractMentionedDocNamesFromMessage(message) {
+  const text = String(message || '');
+  const re = /([^\s"'`<>|]+?\.(?:pdf|docx|doc|txt|xlsx|xls|csv|json|md|html|htm))/gi;
+  const out = [];
+  let m;
+  while ((m = re.exec(text)) !== null) {
+    const raw = String(m[1] || '').trim().replace(/^[([{]+|[)\]}:;,.!?]+$/g, '');
+    if (raw) out.push(raw);
+  }
+  return [...new Set(out)];
+}
+
+function resolveMentionedLogicalFilenames(allFilenames, mentionedNames) {
+  const all = Array.isArray(allFilenames) ? allFilenames.filter(Boolean) : [];
+  const mentioned = Array.isArray(mentionedNames) ? mentionedNames.filter(Boolean) : [];
+  if (!all.length || !mentioned.length) return [];
+  const byExact = new Map(all.map((f) => [String(f).toLowerCase(), f]));
+  const byBase = new Map();
+  for (const f of all) {
+    const b = basenameLower(f);
+    if (!b) continue;
+    if (!byBase.has(b)) byBase.set(b, []);
+    byBase.get(b).push(f);
+  }
+  const resolved = [];
+  for (const name of mentioned) {
+    const q = String(name).toLowerCase();
+    if (byExact.has(q)) {
+      resolved.push(byExact.get(q));
+      continue;
+    }
+    const base = basenameLower(name);
+    const exactBase = byBase.get(base) || [];
+    if (exactBase.length) {
+      resolved.push(...exactBase);
+      continue;
+    }
+    for (const [b, arr] of byBase.entries()) {
+      if (b.includes(base) || base.includes(b)) {
+        resolved.push(...arr);
+      }
+    }
+  }
+  return [...new Set(resolved)];
+}
+
+function filterRowsToTargetFilenames(rows, targetFilenames) {
+  const arr = Array.isArray(rows) ? rows : [];
+  const targets = Array.isArray(targetFilenames) ? targetFilenames.filter(Boolean) : [];
+  if (!targets.length) return arr;
+  const full = new Set(targets.map((f) => String(f).toLowerCase()));
+  const base = new Set(targets.map((f) => basenameLower(f)));
+  return arr.filter((r) => {
+    const fn = String(r?.metadata?.filename || '').toLowerCase();
+    if (!fn) return false;
+    if (full.has(fn)) return true;
+    return base.has(basenameLower(fn));
+  });
 }
 
 /**
@@ -717,22 +881,225 @@ app.post("/ask-matriya", requireAuth, askMatriyaMulter, async (req, res) => {
     history = [];
   }
   const files = req.files || [];
+  const allFilesScopeRequested = (() => {
+    const v = req.body?.all_files;
+    if (typeof v === 'boolean') return v;
+    if (typeof v === 'number') return v === 1;
+    if (typeof v === 'string') return /^(1|true|yes|all)$/i.test(v.trim());
+    return false;
+  })();
   const filenames = (() => {
     const f = req.body?.filenames;
     if (Array.isArray(f)) return f.filter(x => typeof x === 'string' && x.trim());
     if (typeof f === 'string') try { const a = JSON.parse(f); return Array.isArray(a) ? a.filter(x => typeof x === 'string' && x.trim()) : []; } catch (_) { return []; }
     return [];
   })();
+  const MAX_FILE_CONTEXT_CHARS = 80000;
+  const MAX_HISTORY_MESSAGES = 20;
+  const openaiKey = settings.OPENAI_API_KEY;
+  if (allFilesScopeRequested && filenames.length === 0 && files.length === 0) {
+    // "All files" scope: use RAG retrieval over the full indexed collection (same model path as document RAG),
+    // instead of injecting massive full-text context into this route.
+    try {
+      const rag = getRagService();
+      const allIndexedFilenames = await rag.getAllFilenames();
+      const mentionedDocNames = extractMentionedDocNamesFromMessage(message);
+      const targetedLogicalFilenames = resolveMentionedLogicalFilenames(allIndexedFilenames, mentionedDocNames);
+      if (targetedLogicalFilenames.length > 0) {
+        const loaded = [];
+        for (const fn of targetedLogicalFilenames.slice(0, 3)) {
+          const text = await loadIndexedTextForAskMatriya(rag, fn);
+          if (text) loaded.push({ filename: fn, text });
+        }
+        if (!loaded.length) {
+          return res.status(422).json({
+            error: 'INSUFFICIENT_EVIDENCE',
+            message: 'INSUFFICIENT_EVIDENCE',
+            status: 'INSUFFICIENT_EVIDENCE',
+            reply: userLang === 'he' ? RAG_INSUFFICIENT_SUPPORT_MESSAGE_HE : 'There is no supporting information in the system for this question.',
+            sources: []
+          });
+        }
+        let fileContext = '';
+        for (const it of loaded) {
+          const sheet = isAskMatriyaSpreadsheetFilename(it.filename);
+          const pre = sheet ? ASK_MATRIYA_EXCEL_CONTEXT_PREAMBLE : '';
+          fileContext += `\n--- ${it.filename} ---\n${pre}${String(it.text || '').slice(0, 20000)}\n`;
+        }
+        const systemContent = `The user asked about specific document(s) by filename.
+
+${ASK_MATRIYA_STRICT_DOCUMENT_ONLY_RULES}
+
+Documents:
+${fileContext}`;
+        const llmMessages = [
+          { role: 'system', content: systemContent },
+          { role: 'user', content: message }
+        ];
+        let reply = userLang === 'he' ? RAG_INSUFFICIENT_SUPPORT_MESSAGE_HE : 'There is no supporting information in the system for this question.';
+        if (openaiKey) {
+          try {
+            const response = await axios.post(
+              'https://api.openai.com/v1/chat/completions',
+              {
+                model: 'gpt-4o-mini',
+                messages: llmMessages,
+                max_tokens: 1200,
+                temperature: 0.2
+              },
+              {
+                headers: {
+                  Authorization: `Bearer ${openaiKey}`,
+                  'Content-Type': 'application/json'
+                },
+                timeout: 60000
+              }
+            );
+            const ai = String(response.data?.choices?.[0]?.message?.content || '').trim();
+            if (ai) reply = ai;
+          } catch (e) {
+            logger.warn(`Ask Matriya targeted filename completion failed: ${e.message}`);
+          }
+        }
+        const pseudoRows = loaded.map((it, i) => ({
+          id: `targeted-${i + 1}`,
+          metadata: { filename: it.filename },
+          document: String(it.text || '').slice(0, 3500)
+        }));
+        return res.json({
+          reply,
+          sources: buildAnswerSourcesFromRetrieval(pseudoRows),
+          mode: 'all_files_targeted_filename',
+          target_filenames: targetedLogicalFilenames
+        });
+      }
+      const targetFilter = targetedLogicalFilenames.length ? { filenames: targetedLogicalFilenames } : null;
+      const nPre = rag.getDocAgentRetrievalCount ? rag.getDocAgentRetrievalCount(targetFilter) : 12;
+      const searchResults = await rag.search(message, nPre, targetFilter);
+      let relevant = filterChunksByRetrievalSimilarityThreshold(searchResults || []);
+      relevant = filterRowsToTargetFilenames(relevant, targetedLogicalFilenames);
+      if (mentionedDocNames.length > 0 && targetedLogicalFilenames.length === 0) {
+        const m = mentionedDocNames.join(', ');
+        return res.status(404).json({
+          error: 'FILE_NOT_FOUND_IN_INDEX',
+          message: userLang === 'he'
+            ? `לא מצאתי במאגר קובץ בשם: ${m}. בדקו שהקובץ מופיע בטבלה.`
+            : `I could not find this file in the indexed table: ${m}.`,
+          sources: []
+        });
+      }
+      if (!relevant.length) {
+        return res.status(422).json({
+          error: 'INSUFFICIENT_EVIDENCE',
+          message: 'INSUFFICIENT_EVIDENCE',
+          status: 'INSUFFICIENT_EVIDENCE',
+          reply: userLang === 'he' ? RAG_INSUFFICIENT_SUPPORT_MESSAGE_HE : 'There is no supporting information in the system for this question.',
+          sources: [],
+          retrieval_similarity_gate: true
+        });
+      }
+      const docResult = await rag.generateAnswer(message, nPre, targetFilter, true, relevant);
+      let rows = filterChunksByRetrievalSimilarityThreshold(docResult.results || []);
+      rows = filterRowsToTargetFilenames(rows, targetedLogicalFilenames);
+      rows = filterRetrievalRowsByAnswerBinding(rows, docResult.answer || '');
+      const sources = buildAnswerSourcesFromRetrieval(rows);
+      const fallbackInsufficient =
+        userLang === 'he'
+          ? RAG_INSUFFICIENT_SUPPORT_MESSAGE_HE
+          : 'There is no supporting information in the system for this question.';
+      let reply = String(docResult.answer || '').trim();
+      // Fallback for local runs where strict RAG synthesis returns canonical insufficient too often:
+      // use the already-retrieved chunks as explicit "Documents" context for Ask Matriya chat completion.
+      if ((!reply || reply === fallbackInsufficient) && openaiKey) {
+        const contextRows = rows.length ? rows : relevant;
+        const MAX_ALL_FILES_CONTEXT_CHARS = 26000;
+        let fileContext = '';
+        let contextHasSpreadsheet = false;
+        for (const r of contextRows.slice(0, 18)) {
+          if (fileContext.length >= MAX_ALL_FILES_CONTEXT_CHARS) break;
+          const fn = String(r?.metadata?.filename || 'Unknown');
+          const text = String(r?.document || r?.text || '').trim();
+          if (!text) continue;
+          const sheet = isAskMatriyaSpreadsheetFilename(fn);
+          if (sheet) contextHasSpreadsheet = true;
+          const pre = sheet ? ASK_MATRIYA_EXCEL_CONTEXT_PREAMBLE : '';
+          const chunk = `\n--- ${fn} ---\n${pre}${text}\n`;
+          fileContext +=
+            fileContext.length + chunk.length <= MAX_ALL_FILES_CONTEXT_CHARS
+              ? chunk
+              : chunk.slice(0, MAX_ALL_FILES_CONTEXT_CHARS - fileContext.length);
+        }
+        if (fileContext.trim()) {
+          const spreadsheetMode = contextHasSpreadsheet || /\[גיליון:/.test(fileContext);
+          const comparisonQuery =
+            /השוואה|לעומת|\sמול\s|A\s+vs\s+B|דלתא|Δ|הפרש\s+בין|שתי\s+גרסאות|שתי\s+פורמולצ|compare|comparison|versus|vs\.?|delta|formulation/i.test(
+              message
+            );
+          const spreadsheetHint = spreadsheetMode
+            ? '\n\nSpreadsheets: Lines may be tab-separated rows from Excel; sheet titles may appear as [גיליון: …]. This tabular text is valid document content. You MUST answer and summarize from it (columns, headers, values) still using ONLY that text—no outside knowledge. Never claim you lack the document when the Documents section contains non-empty spreadsheet text.\n'
+            : '';
+          const comparisonHint = comparisonQuery
+            ? `\n\nComparison: If the user asks to compare two compositions/versions with percentages, respond with one Markdown table using the user's language headers (${userLang === 'he' ? 'רכיב | % (A) | % (B) | Δ (B−A)' : 'Component | % (A) | % (B) | Δ (B−A)'}). Δ is in percentage points. Use ONLY values present in the Documents text; use "—" when a value is missing. Do not invent numbers.\n`
+            : '';
+          const systemContent = `The user selected all indexed documents. The text below is retrieved context from the local index.
+
+${ASK_MATRIYA_STRICT_DOCUMENT_ONLY_RULES}
+${spreadsheetHint}${comparisonHint}
+Documents:
+${fileContext}`;
+          const MAX_MESSAGE_CONTENT_CHARS = 4000;
+          const trimmedHistory = (Array.isArray(history) ? history.slice(-MAX_HISTORY_MESSAGES) : []).map((m) => ({
+            ...m,
+            content: typeof m.content === 'string' ? m.content.slice(0, MAX_MESSAGE_CONTENT_CHARS) : m.content
+          }));
+          const llmMessages = [
+            { role: 'system', content: systemContent },
+            ...trimmedHistory,
+            { role: 'user', content: message }
+          ];
+          try {
+            const response = await axios.post(
+              'https://api.openai.com/v1/chat/completions',
+              {
+                model: 'gpt-4o-mini',
+                messages: llmMessages,
+                max_tokens: spreadsheetMode ? 2048 : 1024,
+                temperature: 0.25
+              },
+              {
+                headers: {
+                  Authorization: `Bearer ${openaiKey}`,
+                  'Content-Type': 'application/json'
+                },
+                timeout: 60000
+              }
+            );
+            const openAiReply = response.data?.choices?.[0]?.message?.content?.trim() || '';
+            if (openAiReply) reply = openAiReply;
+          } catch (e) {
+            logger.warn(`Ask Matriya all_files OpenAI fallback failed: ${e.message}`);
+          }
+        }
+      }
+      if (!reply) reply = fallbackInsufficient;
+      return res.json({
+        reply,
+        sources,
+        mode: 'all_files_rag',
+        results_count: rows.length,
+        target_filenames: targetedLogicalFilenames
+      });
+    } catch (e) {
+      logger.error(`Ask Matriya all_files RAG error: ${e.message}`);
+      return res.status(500).json({ error: e.message || 'Ask all files failed' });
+    }
+  }
   if (filenames.length === 0 && files.length === 0) {
     return res.status(400).json({
       error: 'יש לבחור לפחות מסמך אחד או להעלות קובץ.',
       code: 'NO_DOCUMENTS_SELECTED'
     });
   }
-  const MAX_FILE_CONTEXT_CHARS = 80000;
-  const MAX_HISTORY_MESSAGES = 20;
-
-  const openaiKey = settings.OPENAI_API_KEY;
   if (!openaiKey) {
     return res.status(503).json({ error: "OpenAI API key not configured. Set OPENAI_API_KEY in .env." });
   }
@@ -1704,12 +2071,24 @@ app.get("/collection/info", async (req, res) => {
  */
 app.get("/gpt-rag/status", async (req, res) => {
   const key = (settings.OPENAI_API_KEY || '').trim();
+  let rag = null;
+  try {
+    rag = getRagService();
+  } catch (_) {}
+  const coverage = rag ? await getGptRagCoverageSummary(rag) : {
+    eligible_files_count: null,
+    mapped_files_count: null,
+    missing_files_count: null,
+    missing_files: [],
+    missing_files_preview: []
+  };
   if (!key) {
     return res.json({
       configured: false,
       openai: false,
       reason: 'cloud_doc_key_missing',
-      use_openai_file_search: useOpenAiFileSearchEnabled()
+      use_openai_file_search: useOpenAiFileSearchEnabled(),
+      coverage
     });
   }
   await hydrateMatriyaOpenAiVectorStoreId();
@@ -1721,7 +2100,8 @@ app.get("/gpt-rag/status", async (req, res) => {
       openai: true,
       use_openai_file_search: false,
       vector_store_id: vsId || null,
-      hint: 'cloud_file_search_disabled'
+      hint: 'cloud_file_search_disabled',
+      coverage
     });
   }
   if (!vsId) {
@@ -1731,7 +2111,8 @@ app.get("/gpt-rag/status", async (req, res) => {
       use_openai_file_search: true,
       vector_store_id: null,
       vector_store_status: null,
-      hint: 'sync_required'
+      hint: 'sync_required',
+      coverage
     });
   }
   try {
@@ -1744,13 +2125,33 @@ app.get("/gpt-rag/status", async (req, res) => {
       },
       timeout: 30000
     });
+    const completed = Number(r.data?.file_counts?.completed || 0);
+    const inProgress = Number(r.data?.file_counts?.in_progress || 0);
+    const coveredByVectorStoreCounts =
+      Number.isFinite(coverage?.eligible_files_count) &&
+      coverage.eligible_files_count >= 0 &&
+      Number.isFinite(completed) &&
+      Number.isFinite(inProgress) &&
+      completed + inProgress >= coverage.eligible_files_count;
+    const normalizedCoverage = coveredByVectorStoreCounts
+      ? {
+          ...coverage,
+          mapped_files_count: coverage.eligible_files_count,
+          missing_files_count: 0,
+          missing_files: [],
+          missing_files_preview: [],
+          derived_from_vector_store_counts: true,
+          map_likely_stale: Number(coverage?.missing_files_count || 0) > 0
+        }
+      : coverage;
     return res.json({
       configured: true,
       openai: true,
       use_openai_file_search: true,
       vector_store_id: vsId,
       vector_store_status: r.data?.status || null,
-      file_counts: r.data?.file_counts || null
+      file_counts: r.data?.file_counts || null,
+      coverage: normalizedCoverage
     });
   } catch (e) {
     return res.json({
@@ -1759,7 +2160,8 @@ app.get("/gpt-rag/status", async (req, res) => {
       use_openai_file_search: true,
       vector_store_id: vsId,
       vector_store_status: 'unknown',
-      warning: e.response?.data?.error?.message || e.message
+      warning: e.response?.data?.error?.message || e.message,
+      coverage
     });
   }
 });
@@ -1827,6 +2229,48 @@ function gptFileSearchMeta(ragInstance) {
     }
   } catch (_) {}
   return base;
+}
+
+/** Keep in sync with frontend cloud-sync eligibility. */
+const GPT_SYNC_ELIGIBLE_RE = /\.(pdf|docx|doc|txt|xlsx|xls|pptx|csv|json|md|html|htm)$/i;
+function isGptSyncEligibleFilename(name) {
+  const base = String(name || '').split('/').filter(Boolean).pop() || '';
+  return Boolean(base && GPT_SYNC_ELIGIBLE_RE.test(base));
+}
+
+async function getGptRagCoverageSummary(rag) {
+  try {
+    const rows = await rag.getFilesWithMetadata();
+    const eligibleNames = [...new Set(
+      (Array.isArray(rows) ? rows : [])
+        .map((r) => String(r?.filename || '').trim())
+        .filter((n) => n && isGptSyncEligibleFilename(n))
+    )];
+    const fileMap = await getMatriyaOpenAiSyncFileMap();
+    const mappedNames = new Set(
+      Object.entries(fileMap || {})
+        .filter(([, v]) => v && typeof v === 'object' && String(v.file_id || '').trim())
+        .map(([k]) => String(k || '').trim())
+        .filter(Boolean)
+    );
+    const missing = eligibleNames.filter((n) => !mappedNames.has(n));
+    return {
+      eligible_files_count: eligibleNames.length,
+      mapped_files_count: eligibleNames.length - missing.length,
+      missing_files_count: missing.length,
+      missing_files: missing,
+      missing_files_preview: missing.slice(0, 25)
+    };
+  } catch (e) {
+    logger.warn(`gpt-rag/status coverage summary failed: ${e.message}`);
+    return {
+      eligible_files_count: null,
+      mapped_files_count: null,
+      missing_files_count: null,
+      missing_files: [],
+      missing_files_preview: []
+    };
+  }
 }
 
 /**
@@ -1994,9 +2438,26 @@ app.post("/reset", async (req, res) => {
 
 // Start server
 if (!process.env.VERCEL) {
-  app.listen(settings.API_PORT, settings.API_HOST, () => {
-    logger.info(`Server running on http://${settings.API_HOST}:${settings.API_PORT}`);
-  });
+  const DEV_LISTEN_RETRY_MAX = Math.max(1, parseInt(process.env.DEV_LISTEN_RETRY_MAX || '8', 10) || 8);
+  const DEV_LISTEN_RETRY_DELAY_MS = Math.max(200, parseInt(process.env.DEV_LISTEN_RETRY_DELAY_MS || '1200', 10) || 1200);
+
+  const startServerWithRetry = (attempt = 1) => {
+    const server = app.listen(settings.API_PORT, settings.API_HOST, () => {
+      logger.info(`Server running on http://${settings.API_HOST}:${settings.API_PORT}`);
+    });
+    server.on('error', (err) => {
+      if (err?.code === 'EADDRINUSE' && attempt < DEV_LISTEN_RETRY_MAX) {
+        logger.warn(
+          `Port ${settings.API_PORT} is busy (attempt ${attempt}/${DEV_LISTEN_RETRY_MAX}). Retrying in ${DEV_LISTEN_RETRY_DELAY_MS}ms...`
+        );
+        setTimeout(() => startServerWithRetry(attempt + 1), DEV_LISTEN_RETRY_DELAY_MS);
+        return;
+      }
+      throw err;
+    });
+  };
+
+  startServerWithRetry(1);
 }
 
 export default app;

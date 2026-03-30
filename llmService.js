@@ -5,6 +5,18 @@ import axios from 'axios';
 import logger from './logger.js';
 import settings from './config.js';
 
+const RAG_MEASUREMENT_SCHEMA_RULES = [
+  'When the question requires measurements/comparisons (e.g. viscosity, pH, cps, percentages), output a strict JSON object first (no prose before it) with these keys:',
+  '{"measurements":[],"comparisons":[],"evidence_links":[],"document_classification":[],"notes":[]}.',
+  'Each measurement item must include: metric, value, unit, conditions (rpm, temperature_c, sample, stage), and source_ref.',
+  'CPS comparison rule (mandatory): only compare cps values when RPM is explicitly present and equal on both sides; otherwise set comparable=false and explain in reason.',
+  'RAG-to-experiment linkage: prioritize evidence where unit + conditions both match; fallback order is (1) same metric+unit, (2) same metric only, and mark weaker match in notes.',
+  'Document classification: classify every cited source as one of formulation | experiment_result | qc_data with confidence high|medium|low.',
+  'For viscosity/pH conclusions, prioritize experiment_result and qc_data evidence over formulation-only text. For composition percentages, prioritize formulation evidence.',
+  'Cross-field consistency: never merge values across different units/conditions into one conclusion. If conflicting evidence exists, report conflict explicitly in notes.',
+  'Use only the provided context; do not invent missing values.'
+].join(' ');
+
 class LLMService {
   /**Service for generating answers using Together AI or Hugging Face API*/
   
@@ -50,11 +62,13 @@ class LLMService {
       "בשלב קרנל K/C: רק צטט ידע קיים מהמסמכים. אסור להסביר למה, להסיק התאמה או להוסיף משמעות. " +
       "אל תקבע «הכי טוב», «מומלץ» או מנצח בהשוואת פורמולות אלא אם המסמך מצטט זאת במפורש. " +
       "פורמט: \"במסמך X מופיע: [ציטוט מדויק]\". אם אין במסמכים מידע רלוונטי: אין במערכת מידע תומך לשאלה זו. " +
-      "ענה בעברית בלבד. אסור להשתמש בערבית.";
+      "ענה בעברית בלבד. אסור להשתמש בערבית. " +
+      RAG_MEASUREMENT_SCHEMA_RULES;
     const defaultSystem =
       "Based on the given context, answer the question clearly and concisely. You must respond in Hebrew (עברית) only. Do not use Arabic. " +
       "Do not state which formulation is best, recommended, or superior unless the context explicitly says so; describe only what appears in the context. " +
-      "If the context does not contain enough information to answer, respond with this single Hebrew sentence only — no bullet lists, no recommendations, no next steps: אין במערכת מידע תומך לשאלה זו.";
+      "If the context does not contain enough information to answer, respond with this single Hebrew sentence only — no bullet lists, no recommendations, no next steps: אין במערכת מידע תומך לשאלה זו. " +
+      RAG_MEASUREMENT_SCHEMA_RULES;
     const systemPrompt = citationOnly ? citationOnlySystem : defaultSystem;
     const userContent = `Context:\n${context}\n\nQuestion: ${question}`;
     
@@ -107,8 +121,8 @@ class LLMService {
       } else {
         // Hugging Face: keep prompt format
         const instruction = citationOnly
-          ? "בשלב קרנל K/C: רק צטט ידע קיים מהמסמכים. אסור להסביר, להסיק או להוסיף משמעות. פורמט: \"במסמך X מופיע: [ציטוט]\". אם אין מידע: אין במערכת מידע תומך לשאלה זו. "
-          : "Based on the following context, answer the question clearly and concisely. ";
+          ? `בשלב קרנל K/C: רק צטט ידע קיים מהמסמכים. אסור להסביר, להסיק או להוסיף משמעות. פורמט: "במסמך X מופיע: [ציטוט]". אם אין מידע: אין במערכת מידע תומך לשאלה זו. ${RAG_MEASUREMENT_SCHEMA_RULES} `
+          : `Based on the following context, answer the question clearly and concisely. ${RAG_MEASUREMENT_SCHEMA_RULES} `;
         const prompt = `${instruction}IMPORTANT: You must respond in Hebrew (עברית) only. Do not use Arabic.\n\nContext:\n${context}\n\nQuestion: ${question}\n\nAnswer (in Hebrew only):`;
         // Hugging Face API format
         const response = await axios.post(

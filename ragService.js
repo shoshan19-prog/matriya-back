@@ -9,6 +9,7 @@ import LLMService from './llmService.js';
 import logger from './logger.js';
 import { readdirSync, statSync } from 'fs';
 import { join, extname } from 'path';
+import { createHash } from 'crypto';
 import {
   getMatriyaOpenAiVectorStoreId,
   hydrateMatriyaOpenAiVectorStoreId,
@@ -28,6 +29,10 @@ import { detectStructuredDataInSnippets } from './lib/detectStructuredFormulatio
 
 class RAGService {
   /**Main service for RAG operations*/
+
+  _hashText(text) {
+    return createHash('sha256').update(String(text || ''), 'utf8').digest('hex');
+  }
 
   _openAiFileSearchReady() {
     return (
@@ -145,6 +150,34 @@ class RAGService {
         file_path: filePath
       };
     }
+
+    const filenameForStore = metadata.filename;
+    const sourceTextHash = this._hashText(text);
+
+    // Idempotency guard: if same logical filename already has the same extracted text hash, skip full re-index.
+    // This prevents repeated "delete + embed + insert" loops when callers retry the same files.
+    try {
+      if (filenameForStore) {
+        const existingHash = await this.vectorStore.getFileTextHash(filenameForStore);
+        if (existingHash && existingHash === sourceTextHash) {
+          logger.info(`Delta: unchanged content for ${filenameForStore} (hash match) — skip re-ingest`);
+          return {
+            success: true,
+            file_path: filePath,
+            filename: filenameForStore,
+            chunks_count: 0,
+            document_ids: [],
+            metadata: {
+              ...metadata,
+              source_text_sha256: sourceTextHash
+            },
+            skipped_unchanged: true
+          };
+        }
+      }
+    } catch (e) {
+      logger.warn(`Delta unchanged-check (non-fatal): ${e.message}`);
+    }
     
     // Chunk the text
     logger.info("Chunking document into pieces...");
@@ -161,8 +194,10 @@ class RAGService {
     
     // Extract texts and metadatas for vector store
     const texts = chunks.map(chunk => chunk.text);
-    const metadatas = chunks.map(chunk => chunk.metadata);
-    const filenameForStore = metadata.filename;
+    const metadatas = chunks.map(chunk => ({
+      ...chunk.metadata,
+      source_text_sha256: sourceTextHash
+    }));
 
     // Delta hardening: replace existing chunks for this file (idempotent re-ingest)
     try {

@@ -669,6 +669,27 @@ class SupabaseVectorStore {
     }
   }
 
+  async getFileTextHash(filename) {
+    /** Get stored source text hash for a logical filename (if present in metadata). */
+    const client = await this.pool.connect();
+    try {
+      const result = await client.query(
+        `SELECT metadata->>'source_text_sha256' AS source_text_sha256
+         FROM ${this.collectionName}
+         WHERE metadata->>'filename' = $1
+         LIMIT 1`,
+        [filename]
+      );
+      const hash = result.rows?.[0]?.source_text_sha256;
+      return typeof hash === 'string' && hash.trim() ? hash.trim() : null;
+    } catch (e) {
+      logger.error(`Error getting file text hash: ${e.message}`);
+      return null;
+    } finally {
+      client.release();
+    }
+  }
+
   async getCollectionInfo() {
     /**Get information about the collection*/
     const client = await this.pool.connect();
