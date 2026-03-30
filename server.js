@@ -660,9 +660,15 @@ const ASK_MATRIYA_STRICT_DOCUMENT_ONLY_RULES = [
   'Grounding (mandatory): Use ONLY the text under "Documents:" below as your source of truth.',
   'Do NOT use outside knowledge, training data, or the open web: no extra facts, names, dates, laws, definitions, or background that do not appear in those documents.',
   'You may paraphrase or quote only what is in the documents. Simple inferences are allowed only when they follow directly from stated text (e.g. counting or comparing numbers that appear in the documents).',
-  'If the documents do not contain enough information to answer, say so clearly in Hebrew — do NOT fill gaps with general knowledge.',
-  'Respond in Hebrew (עברית) only. Do not use Arabic.'
+  "If the documents do not contain enough information to answer, say so clearly in the user's language (Hebrew or English) — do NOT fill gaps with general knowledge.",
+  "Language: Reply in the same language as the user's latest message (Hebrew or English). If the user wrote in English, answer entirely in English; if in Hebrew, answer entirely in Hebrew. Keep short quotes from the documents in their original wording when needed. Do not use Arabic."
 ].join('\n');
+
+function detectAskMatriyaUserLanguage(message) {
+  const text = String(message || '');
+  if (/[\u0590-\u05FF]/.test(text)) return 'he';
+  return 'en';
+}
 
 /**
  * Ask Matriya: full indexed text (or first chunk fallback) into the chat prompt — not vector RAG retrieval.
@@ -687,6 +693,7 @@ const askMatriyaMulter = (req, res, next) => {
 };
 app.post("/ask-matriya", requireAuth, askMatriyaMulter, async (req, res) => {
   const message = (req.body?.message ?? '').trim();
+  const userLang = detectAskMatriyaUserLanguage(message);
   if (!message) {
     return res.status(400).json({ error: "message is required" });
   }
@@ -784,14 +791,14 @@ app.post("/ask-matriya", requireAuth, askMatriyaMulter, async (req, res) => {
 
   const spreadsheetMode = contextHasSpreadsheet || /\[גיליון:/.test(fileContext);
   const comparisonQuery =
-    /השוואה|לעומת|\sמול\s|A\s+vs\s+B|דלתא|Δ|הפרש\s+בין|שתי\s+גרסאות|שתי\s+פורמולצ/i.test(
+    /השוואה|לעומת|\sמול\s|A\s+vs\s+B|דלתא|Δ|הפרש\s+בין|שתי\s+גרסאות|שתי\s+פורמולצ|compare|comparison|versus|vs\.?|delta|formulation/i.test(
       message
     );
   const spreadsheetHint = spreadsheetMode
-    ? '\n\nSpreadsheets: Lines may be tab-separated rows from Excel; sheet titles may appear as [גיליון: …]. This tabular text is valid document content. You MUST answer and summarize from it (columns, headers, values) still using ONLY that text—no outside knowledge. Never claim you lack the document when the Documents section contains non-empty spreadsheet text; describe sheets, columns, and data in Hebrew from the text only.\n'
+    ? '\n\nSpreadsheets: Lines may be tab-separated rows from Excel; sheet titles may appear as [גיליון: …]. This tabular text is valid document content. You MUST answer and summarize from it (columns, headers, values) still using ONLY that text—no outside knowledge. Never claim you lack the document when the Documents section contains non-empty spreadsheet text.\n'
     : '';
   const comparisonHint = comparisonQuery
-    ? '\n\nComparison (השוואה A מול B): If the user asks to compare two compositions/versions with percentages, respond with one Markdown table: רכיב | % (A) | % (B) | Δ (B−A) in percentage points. Use ONLY values present in the Documents text; use "—" when a value is missing. Do not invent numbers.\n'
+    ? `\n\nComparison: If the user asks to compare two compositions/versions with percentages, respond with one Markdown table using the user's language headers (${userLang === 'he' ? 'רכיב | % (A) | % (B) | Δ (B−A)' : 'Component | % (A) | % (B) | Δ (B−A)'}). Δ is in percentage points. Use ONLY values present in the Documents text; use "—" when a value is missing. Do not invent numbers.\n`
     : '';
 
   const systemContent = fileContext
@@ -801,7 +808,7 @@ ${ASK_MATRIYA_STRICT_DOCUMENT_ONLY_RULES}
 ${spreadsheetHint}${comparisonHint}
 Documents:
 ${fileContext}`
-    : "You are a helpful research assistant. You must respond in Hebrew (עברית) only. Do not use Arabic.";
+    : "You are a helpful research assistant. Reply in the same language as the user's latest message (Hebrew or English). Do not use Arabic.";
   const MAX_MESSAGE_CONTENT_CHARS = 4000;
   const hasFileContext = String(fileContext || '').trim().length > 0;
   let trimmedHistory = (Array.isArray(history) ? history.slice(-MAX_HISTORY_MESSAGES) : []).map(m => ({
