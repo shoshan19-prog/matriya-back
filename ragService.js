@@ -24,7 +24,8 @@ import {
   filterSnippetsByQueryDomain,
   filterRetrievalRowsByQueryDomain,
   evaluateConclusionBeforeGeneration,
-  evaluateComparisonOutputMode
+  evaluateComparisonOutputMode,
+  expandQueryWithSemanticTerms
 } from './lib/domainAndGenerationGate.js';
 import { detectStructuredDataInSnippets } from './lib/detectStructuredFormulationChunks.js';
 
@@ -305,11 +306,12 @@ class RAGService {
      * Returns:
      *   List of search results, sorted by relevance
      */
+    const semanticQuery = expandQueryWithSemanticTerms(query);
     await hydrateMatriyaOpenAiVectorStoreId();
     if (this._openAiFileSearchReady()) {
       try {
         const catalogFilenames = await this._catalogFilenamesForOpenAi();
-        const { snippets, answerText } = await openAiFileSearchAnswerAndSnippets(query, filterMetadata, {
+        const { snippets, answerText } = await openAiFileSearchAnswerAndSnippets(semanticQuery, filterMetadata, {
           forContextOnly: true,
           catalogFilenames
         });
@@ -324,7 +326,7 @@ class RAGService {
     }
 
     // Search with more results initially, then re-rank
-    const initialResults = await this.vectorStore.search(query, nResults * 3, filterMetadata);
+    const initialResults = await this.vectorStore.search(semanticQuery, nResults * 3, filterMetadata);
     
     if (!initialResults || initialResults.length === 0) {
       return [];
@@ -428,6 +430,7 @@ class RAGService {
      * Returns:
      *   Dictionary with search results and generated answer
      */
+    const semanticQuery = expandQueryWithSemanticTerms(query);
     await hydrateMatriyaOpenAiVectorStoreId();
 
     let searchResults = Array.isArray(prefetchedSearchResults) ? prefetchedSearchResults : null;
@@ -435,7 +438,7 @@ class RAGService {
     if (searchResults == null && this._openAiFileSearchReady()) {
       try {
         const catalogFilenames = await this._catalogFilenamesForOpenAi();
-        const { answerText, snippets } = await openAiFileSearchAnswerAndSnippets(query, filterMetadata, {
+        const { answerText, snippets } = await openAiFileSearchAnswerAndSnippets(semanticQuery, filterMetadata, {
           forContextOnly: !useLlm,
           catalogFilenames
         });
@@ -509,7 +512,7 @@ class RAGService {
 
     try {
       if (searchResults == null) {
-        searchResults = await this.search(query, nResults, filterMetadata);
+        searchResults = await this.search(semanticQuery, nResults, filterMetadata);
       }
     } catch (e) {
       logger.error(`Error during search: ${e.message}`);
