@@ -931,16 +931,196 @@ function isAskMatriyaProjectMaterialIntent(message) {
   return /project|projects|material|materials|פרויקט|פרויקטים|חומר|חומרים|ספריית חומרים|material library|belongs to/.test(text);
 }
 
-async function answerAskMatriyaFromProjectMetadata({ message, userLang, openaiKey, projectMetadataText }) {
+function parseAskMatriyaProjectMetadataText(projectMetadataText) {
+  const text = String(projectMetadataText || '');
+  const lines = text.split(/\r?\n/).map((l) => String(l || '').trim()).filter(Boolean);
+  const projects = [];
+  const materials = [];
+
+  const projectRe = /^-\s*\[([^\]]+)\]\s+(.+?)(?:\s+\((?:member|not_member)\))?(?:\s+—\s+.*)?$/i;
+  const materialRe = /^-\s*(.+?)\s*->\s*(.+?)\s*\[([^\]]+)\](?:\s*\|\s*role:\s*(.+))?$/i;
+
+  for (const line of lines) {
+    const pm = line.match(projectRe);
+    if (pm) {
+      projects.push({
+        project_id: String(pm[1] || '').trim(),
+        project_name: String(pm[2] || '').trim()
+      });
+      continue;
+    }
+    const mm = line.match(materialRe);
+    if (mm) {
+      materials.push({
+        material_name: String(mm[1] || '').trim(),
+        project_name: String(mm[2] || '').trim(),
+        project_id: String(mm[3] || '').trim(),
+        role_or_function: String(mm[4] || '').trim()
+      });
+    }
+  }
+
+  return { projects, materials };
+}
+
+function buildAskMatriyaProjectMaterialsDeterministicReply(projectMetadataText, userLang = 'he', userMessage = '') {
+  const { projects, materials } = parseAskMatriyaProjectMetadataText(projectMetadataText);
+  const byProjectId = new Map();
+
+  for (const p of projects) {
+    if (!p.project_id || !p.project_name) continue;
+    byProjectId.set(p.project_id, { ...p, materials: [] });
+  }
+  for (const m of materials) {
+    if (!m.project_id) continue;
+    if (!byProjectId.has(m.project_id)) {
+      byProjectId.set(m.project_id, {
+        project_id: m.project_id,
+        project_name: m.project_name || 'Unknown',
+        materials: []
+      });
+    }
+    byProjectId.get(m.project_id).materials.push(m);
+  }
+
+  const rows = [...byProjectId.values()].sort((a, b) =>
+    String(a.project_name || '').localeCompare(String(b.project_name || ''), 'he', { sensitivity: 'base' })
+  );
+  if (rows.length === 0) {
+    return userLang === 'he'
+      ? 'אין כרגע פרויקטים זמינים במטא־דאטה של המערכת.'
+      : 'No projects are currently available in system metadata.';
+  }
+
+  const msg = String(userMessage || '').toLowerCase();
+  const asksAllProjects = /כל\s*פרויקט|כל\s*הפרויקטים|all projects|list all projects/.test(msg);
+  const asksMaterialsByProject =
+    /איזה\s*חומרים|חומרים.*באיזה\s*פרויקט|what materials.*which project|materials.*by project|material.*project/.test(msg);
+
+  if (userLang !== 'he') {
+    const withMaterials = rows.filter((r) => Array.isArray(r.materials) && r.materials.length > 0);
+    const withoutMaterials = rows.filter((r) => !Array.isArray(r.materials) || r.materials.length === 0);
+    const targetRows = asksMaterialsByProject && !asksAllProjects ? withMaterials : rows;
+    if (targetRows.length === 0) {
+      return 'No project currently has mapped materials in the system.';
+    }
+
+    const out = ['Projects and their mapped materials:'];
+    let i = 1;
+    for (const row of targetRows) {
+      const mats = Array.isArray(row.materials) ? row.materials : [];
+      out.push(`${i}. ${row.project_name}`);
+      if (mats.length === 0) out.push('   - No mapped materials yet.');
+      else {
+        for (const m of mats.sort((x, y) => String(x.material_name || '').localeCompare(String(y.material_name || '')))) {
+          out.push(`   - ${m.material_name}${m.role_or_function ? ` (role: ${m.role_or_function})` : ''}`);
+        }
+      }
+      i += 1;
+    }
+    if (!asksAllProjects && withMaterials.length > 0 && withoutMaterials.length > 0) {
+      out.push('');
+      out.push(
+        `Note: ${withoutMaterials.length} additional projects currently have no mapped materials. Ask "list all projects" to include them.`
+      );
+    }
+    return out.join('\n');
+  }
+
+  const withMaterials = rows.filter((r) => Array.isArray(r.materials) && r.materials.length > 0);
+  const withoutMaterials = rows.filter((r) => !Array.isArray(r.materials) || r.materials.length === 0);
+  const targetRows = asksMaterialsByProject && !asksAllProjects ? withMaterials : rows;
+  if (targetRows.length === 0) {
+    return 'כרגע אין במערכת פרויקטים עם חומרים משויכים.';
+  }
+
+  const out = ['רשימת פרויקטים והחומרים המשויכים אליהם:'];
+  let i = 1;
+  for (const row of targetRows) {
+    const mats = Array.isArray(row.materials) ? row.materials : [];
+    out.push(`${i}. ${row.project_name}`);
+    if (mats.length === 0) out.push('   - אין חומרים משויכים כרגע.');
+    else {
+      for (const m of mats.sort((x, y) => String(x.material_name || '').localeCompare(String(y.material_name || ''), 'he', { sensitivity: 'base' }))) {
+        out.push(`   - ${m.material_name}${m.role_or_function ? ` (תפקיד: ${m.role_or_function})` : ''}`);
+      }
+    }
+    i += 1;
+  }
+  if (!asksAllProjects && withMaterials.length > 0 && withoutMaterials.length > 0) {
+    out.push('');
+    out.push(`הערה: קיימים עוד ${withoutMaterials.length} פרויקטים ללא חומרים משויכים כרגע. אפשר לבקש "תן את כל הפרויקטים" להצגה מלאה.`);
+  }
+  return out.join('\n');
+}
+
+function resolveMaterialFromMetadataConversation(message, history, parsed) {
+  const materials = Array.isArray(parsed?.materials) ? parsed.materials : [];
+  if (materials.length === 0) return null;
+  const msg = String(message || '').toLowerCase();
+
+  const byDirectMention = materials.find((m) => String(m.material_name || '').toLowerCase() && msg.includes(String(m.material_name || '').toLowerCase()));
+  if (byDirectMention) return byDirectMention;
+
+  const byProjectMention = materials.find((m) => String(m.project_name || '').toLowerCase() && msg.includes(String(m.project_name || '').toLowerCase()));
+  if (byProjectMention) return byProjectMention;
+
+  const pronounFollowUp = /עליו|עליה|אותו|אותה|it|this material|more info|עוד מידע|מה עוד/.test(msg);
+  if (!pronounFollowUp) return null;
+
+  const turns = Array.isArray(history) ? [...history].reverse() : [];
+  for (const t of turns) {
+    const c = String(t?.content || '').toLowerCase();
+    for (const m of materials) {
+      const name = String(m.material_name || '').toLowerCase();
+      if (name && c.includes(name)) return m;
+    }
+  }
+  return null;
+}
+
+function buildMaterialDetailReply(material, userLang = 'he') {
+  const name = String(material?.material_name || '').trim();
+  const project = String(material?.project_name || '').trim();
+  const role = String(material?.role_or_function || '').trim();
+  if (userLang !== 'he') {
+    if (!name) return '';
+    if (role) {
+      return `Material "${name}" is mapped to project "${project}" and its role/function is: ${role}.`;
+    }
+    return `Material "${name}" is mapped to project "${project}". No role/function value is currently stored for it.`;
+  }
+  if (!name) return '';
+  if (role) {
+    return `החומר "${name}" משויך לפרויקט "${project}", והתפקיד/פונקציה שלו הוא: ${role}.`;
+  }
+  return `החומר "${name}" משויך לפרויקט "${project}". כרגע לא שמור עבורו ערך תפקיד/פונקציה (role_or_function).`;
+}
+
+async function answerAskMatriyaFromProjectMetadata({ message, history, userLang, openaiKey, projectMetadataText }) {
   const context = String(projectMetadataText || '').trim();
   if (!context) return '';
+  const parsed = parseAskMatriyaProjectMetadataText(context);
+  const resolvedMaterial = resolveMaterialFromMetadataConversation(message, history, parsed);
+  if (resolvedMaterial) {
+    const detail = buildMaterialDetailReply(resolvedMaterial, userLang);
+    if (detail) return detail;
+  }
+  const deterministic = buildAskMatriyaProjectMaterialsDeterministicReply(context, userLang, message);
+  // Materials/project questions get an extra AI synthesis layer over full metadata context.
+  // If synthesis fails, fall back to deterministic formatter.
   if (!openaiKey) {
-    if (userLang === 'he') {
-      return `להלן המידע הקיים במערכת לגבי שיוך חומרים לפרויקטים:\n\n${context}`;
-    }
-    return `Here is the project/material ownership information available in the system:\n\n${context}`;
+    return deterministic;
   }
   try {
+    const asksAllProjects = /כל\s*פרויקט|כל\s*הפרויקטים|all projects|list all projects/i.test(String(message || ''));
+    const outputScopeRule = asksAllProjects
+      ? (userLang === 'he'
+          ? 'המשתמש ביקש את כל הפרויקטים: הצג את כולם.'
+          : 'User explicitly asked for all projects: include all projects.')
+      : (userLang === 'he'
+          ? 'אם המשתמש לא ביקש במפורש את כל הפרויקטים, התמקד קודם בפרויקטים שיש להם חומרים משויכים.'
+          : 'If user did not explicitly ask for all projects, prioritize projects with mapped materials first.');
     const response = await axios.post(
       'https://api.openai.com/v1/chat/completions',
       {
@@ -950,14 +1130,25 @@ async function answerAskMatriyaFromProjectMetadata({ message, userLang, openaiKe
             role: 'system',
             content:
               `Reply in ${userLang === 'he' ? 'Hebrew' : 'English'} only. ` +
-              'Use ONLY the "Project Metadata" context. ' +
-              'Do not use outside knowledge. If the requested mapping/list is missing, say so clearly.\n\n' +
-              `Project Metadata:\n${context}`
+              'You are a metadata-grounded assistant for project-material ownership questions. ' +
+              'Use ONLY the provided "Project Metadata" context. Do NOT use outside knowledge. ' +
+              'Do not invent materials or project mappings. ' +
+              'Do not show project IDs unless the user explicitly asks for IDs. ' +
+              outputScopeRule +
+              (userLang === 'he'
+                ? ' אם אין התאמות, אמור זאת בבירור ובעברית.'
+                : ' If there are no matches, say it clearly.') +
+              '\n\nProject Metadata:\n' +
+              context
           },
+          ...(Array.isArray(history) ? history.slice(-6).map((h) => ({
+            role: h?.role === 'assistant' ? 'assistant' : 'user',
+            content: String(h?.content || '').slice(0, 1200)
+          })) : []),
           { role: 'user', content: String(message || '').trim().slice(0, 6000) }
         ],
         max_tokens: 900,
-        temperature: 0.2
+        temperature: 0.15
       },
       {
         headers: {
@@ -967,10 +1158,11 @@ async function answerAskMatriyaFromProjectMetadata({ message, userLang, openaiKe
         timeout: 60000
       }
     );
-    return String(response.data?.choices?.[0]?.message?.content || '').trim();
+    const ai = String(response.data?.choices?.[0]?.message?.content || '').trim();
+    return ai || deterministic;
   } catch (e) {
     logger.warn(`Ask Matriya project metadata completion failed: ${e.message}`);
-    return '';
+    return deterministic;
   }
 }
 
@@ -1159,9 +1351,21 @@ app.post("/ask-matriya", requireAuth, askMatriyaMulter, async (req, res) => {
   const projectMetadataBlock = String(projectMetadata?.text || '').trim()
     ? `\n\nProject Metadata:\n${String(projectMetadata.text).trim()}\n`
     : '';
+  if (projectMaterialIntent && !String(projectMetadata?.text || '').trim()) {
+    const noMetaReply =
+      userLang === 'he'
+        ? 'אין כרגע מידע זמין על שיוך חומרים לפרויקטים. בדקו שחיבור מסד הנתונים של הניהול פעיל או שהוגדר MANEGER_BACK_URL לשרת הניהול.'
+        : 'Project/material ownership metadata is currently unavailable. Verify management DB access or set MANEGER_BACK_URL to the management backend.';
+    return res.json({
+      reply: noMetaReply,
+      sources: [],
+      mode: 'project_metadata_unavailable'
+    });
+  }
   if (projectMaterialIntent && String(projectMetadata?.text || '').trim()) {
     const metadataReply = await answerAskMatriyaFromProjectMetadata({
       message,
+      history,
       userLang,
       openaiKey,
       projectMetadataText: projectMetadata.text
@@ -1298,6 +1502,7 @@ ${fileContext}`;
         if (isAskMatriyaProjectMaterialIntent(message) && String(projectMetadata?.text || '').trim()) {
           const metadataReply = await answerAskMatriyaFromProjectMetadata({
             message,
+            history,
             userLang,
             openaiKey,
             projectMetadataText: projectMetadata.text
