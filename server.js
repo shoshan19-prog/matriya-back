@@ -931,6 +931,22 @@ function isAskMatriyaProjectMaterialIntent(message) {
   return /project|projects|material|materials|פרויקט|פרויקטים|חומר|חומרים|ספריית חומרים|material library|belongs to/.test(text);
 }
 
+function appendProjectMetadataSource(sources, projectMetadataText) {
+  const meta = String(projectMetadataText || '').trim();
+  if (!meta) return Array.isArray(sources) ? sources : [];
+  const base = Array.isArray(sources) ? [...sources] : [];
+  const already = base.some(
+    (s) => String(s?.filename || '').trim().toLowerCase() === 'project metadata (projects/materials)'
+  );
+  if (!already) {
+    base.push({
+      filename: 'Project Metadata (projects/materials)',
+      excerpt: meta.slice(0, 3500)
+    });
+  }
+  return base;
+}
+
 function parseAskMatriyaProjectMetadataText(projectMetadataText) {
   const text = String(projectMetadataText || '');
   const lines = text.split(/\r?\n/).map((l) => String(l || '').trim()).filter(Boolean);
@@ -1344,45 +1360,14 @@ app.post("/ask-matriya", requireAuth, askMatriyaMulter, async (req, res) => {
   const MAX_HISTORY_MESSAGES = 20;
   const openaiKey = settings.OPENAI_API_KEY;
   const projectMaterialIntent = isAskMatriyaProjectMaterialIntent(message);
-  const currentUser = projectMaterialIntent ? await getCurrentUser(req) : null;
-  const projectMetadata = projectMaterialIntent
-    ? await loadAskMatriyaProjectMetadataContext(currentUser?.id, req.headers?.authorization || '')
-    : null;
+  const currentUser = await getCurrentUser(req);
+  const projectMetadata = await loadAskMatriyaProjectMetadataContext(
+    currentUser?.id,
+    req.headers?.authorization || ''
+  );
   const projectMetadataBlock = String(projectMetadata?.text || '').trim()
     ? `\n\nProject Metadata:\n${String(projectMetadata.text).trim()}\n`
     : '';
-  if (projectMaterialIntent && !String(projectMetadata?.text || '').trim()) {
-    const noMetaReply =
-      userLang === 'he'
-        ? 'אין כרגע מידע זמין על שיוך חומרים לפרויקטים. בדקו שחיבור מסד הנתונים של הניהול פעיל או שהוגדר MANEGER_BACK_URL לשרת הניהול.'
-        : 'Project/material ownership metadata is currently unavailable. Verify management DB access or set MANEGER_BACK_URL to the management backend.';
-    return res.json({
-      reply: noMetaReply,
-      sources: [],
-      mode: 'project_metadata_unavailable'
-    });
-  }
-  if (projectMaterialIntent && String(projectMetadata?.text || '').trim()) {
-    const metadataReply = await answerAskMatriyaFromProjectMetadata({
-      message,
-      history,
-      userLang,
-      openaiKey,
-      projectMetadataText: projectMetadata.text
-    });
-    if (metadataReply) {
-      return res.json({
-        reply: normalizeNoRelevantReply(userLang, metadataReply),
-        sources: [
-          {
-            filename: 'Project Metadata (projects/materials)',
-            excerpt: String(projectMetadata.text || '').slice(0, 3500)
-          }
-        ],
-        mode: 'project_metadata_direct'
-      });
-    }
-  }
   if (allFilesScopeRequested && filenames.length === 0 && files.length === 0) {
     // "All files" scope: use RAG retrieval over the full indexed collection (same model path as document RAG),
     // instead of injecting massive full-text context into this route.
@@ -1481,7 +1466,7 @@ ${fileContext}`;
         const normalizedReply = normalizeNoRelevantReply(userLang, reply);
         return res.json({
           reply: normalizedReply,
-          sources: buildAnswerSourcesFromRetrieval(pseudoRows),
+          sources: appendProjectMetadataSource(buildAnswerSourcesFromRetrieval(pseudoRows), projectMetadata?.text),
           mode: 'all_files_targeted_filename',
           target_filenames: targetedLogicalFilenames
         });
@@ -1510,12 +1495,7 @@ ${fileContext}`;
           if (metadataReply) {
             return res.json({
               reply: normalizeNoRelevantReply(userLang, metadataReply),
-              sources: [
-                {
-                  filename: 'Project Metadata (projects/materials)',
-                  excerpt: String(projectMetadata.text || '').slice(0, 3500)
-                }
-              ],
+              sources: appendProjectMetadataSource([], projectMetadata?.text),
               mode: 'all_files_project_metadata'
             });
           }
@@ -1663,7 +1643,7 @@ ${fileContext}`;
       }
       return res.json({
         reply,
-        sources,
+        sources: appendProjectMetadataSource(sources, projectMetadata?.text),
         mode: 'all_files_rag',
         results_count: rows.length,
         target_filenames: targetedLogicalFilenames
@@ -1837,7 +1817,7 @@ ${fileContext}`
       });
     }
     // Ask Matriya: no RAG fail-safe sanitizer — the model already sees full document text in the system message.
-    return res.json({ reply, sources: [] });
+    return res.json({ reply, sources: appendProjectMetadataSource([], projectMetadata?.text) });
   } catch (e) {
     const status = e.response?.status;
     const msg = e.response?.data?.error?.message || e.message || "OpenAI request failed";
