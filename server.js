@@ -1474,6 +1474,22 @@ function tryDeterministicQuantityFromRows(query, rows, userLang) {
   return null;
 }
 
+function rowsMentioningMaterial(rows, material, maxItems = 8) {
+  const list = Array.isArray(rows) ? rows : [];
+  const name = String(material || '').trim();
+  if (!name) return [];
+  const re = new RegExp(escapeRegExp(name).replace(/\s+/g, '\\s+'), 'i');
+  const out = [];
+  for (const r of list) {
+    const txt = String(r?.document || r?.text || '').trim();
+    if (!txt) continue;
+    if (!re.test(txt)) continue;
+    out.push(r);
+    if (out.length >= maxItems) break;
+  }
+  return out;
+}
+
 function detectInvalidFormulaSumFromText(text, tolerance = 0.5) {
   const full = String(text || '');
   if (!full.trim()) return false;
@@ -1811,10 +1827,67 @@ ${fileContext}`;
         return res.json(responsePayload);
       }
       const targetFilter = targetedLogicalFilenames.length ? { filenames: targetedLogicalFilenames } : null;
-      const nPre = rag.getDocAgentRetrievalCount ? rag.getDocAgentRetrievalCount(targetFilter) : 12;
-      const searchResults = await rag.search(message, nPre, targetFilter);
+      const quantityMaterial = detectQuantityIntentMaterial(message);
+      const baseNPre = rag.getDocAgentRetrievalCount ? rag.getDocAgentRetrievalCount(targetFilter) : 12;
+      const nPre = quantityMaterial ? Math.max(baseNPre, 80) : baseNPre;
+      let searchResults = await rag.search(message, nPre, targetFilter);
+      const spreadsheetNamesPool = (targetedLogicalFilenames.length > 0
+        ? targetedLogicalFilenames
+        : (allIndexedFilenames || [])
+      ).filter((fn) => isAskMatriyaSpreadsheetFilename(fn));
+      const shouldRunSpreadsheetPass =
+        spreadsheetNamesPool.length > 0 &&
+        !isAskMatriyaProjectMaterialIntent(message);
+      if (shouldRunSpreadsheetPass) {
+        const spreadsheetFilter = { filenames: spreadsheetNamesPool.slice(0, 700) };
+        const spreadsheetN = Math.max(nPre, 120);
+        const spreadsheetResults = await rag.search(message, spreadsheetN, spreadsheetFilter);
+        const merged = [];
+        const seen = new Set();
+        for (const r of [...(searchResults || []), ...(spreadsheetResults || [])]) {
+          const fn = String(r?.metadata?.filename || '');
+          const doc = String(r?.document || r?.text || '');
+          const key = `${fn}\0${doc.slice(0, 240)}`;
+          if (seen.has(key)) continue;
+          seen.add(key);
+          merged.push(r);
+        }
+        searchResults = merged;
+      }
+      if (quantityMaterial) {
+        const deterministicFromSearch = tryDeterministicQuantityFromRows(
+          message,
+          (searchResults || []).map((r) => ({
+            filename: String(r?.metadata?.filename || ''),
+            text: String(r?.document || r?.text || '')
+          })),
+          userLang
+        );
+        if (deterministicFromSearch) {
+          const matchedRows = rowsMentioningMaterial(searchResults || [], quantityMaterial, 8);
+          const docSources = buildAnswerSourcesFromRetrieval(matchedRows.length ? matchedRows : (searchResults || []).slice(0, 8));
+          const responsePayload = {
+            reply: normalizeAskReplyFormatting(deterministicFromSearch, docSources, userLang),
+            sources: appendProjectMetadataSource(docSources, projectMetadata?.text),
+            mode: 'all_files_rag_deterministic_quantity',
+            results_count: (searchResults || []).length,
+            target_filenames: targetedLogicalFilenames
+          };
+          if (deterministicKey) setAskDeterministicCache(deterministicKey, responsePayload);
+          return res.json(responsePayload);
+        }
+      }
       let relevant = filterChunksByRetrievalSimilarityThreshold(searchResults || []);
       relevant = filterRowsToTargetFilenames(relevant, targetedLogicalFilenames);
+      const spreadsheetRows = (searchResults || []).filter((r) =>
+        isAskMatriyaSpreadsheetFilename(String(r?.metadata?.filename || ''))
+      );
+      const spreadsheetRelevant = quantityMaterial
+        ? rowsMentioningMaterial(spreadsheetRows, quantityMaterial, 16)
+        : spreadsheetRows.slice(0, 16);
+      if (!relevant.length && spreadsheetRelevant.length > 0) {
+        relevant = spreadsheetRelevant;
+      }
       if (mentionedDocNames.length > 0 && targetedLogicalFilenames.length === 0) {
         return res.json(
           askMatriyaControlledFailure(userLang, 'document_unavailable', {
