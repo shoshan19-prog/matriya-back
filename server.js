@@ -1304,7 +1304,7 @@ function mapIndexedSourceLabelToFilename(index, sources) {
   });
   const hit = docs[i - 1];
   const fn = String(hit?.filename || hit?.document_name || '').trim();
-  return fn ? toDisplayDocumentName(fn) : null;
+  return fn || null;
 }
 
 function normalizeAskReplyFormatting(replyText, sources, userLang) {
@@ -1326,28 +1326,6 @@ function normalizeAskReplyFormatting(replyText, sources, userLang) {
   });
 
   return txt;
-}
-
-function toDisplayDocumentName(name) {
-  const raw = String(name || '').trim();
-  if (!raw) return raw;
-  if (/^project metadata \(projects\/materials\)$/i.test(raw)) return raw;
-  const base = raw.split(/[/\\]/).filter(Boolean).pop() || raw;
-  return base.replace(/\.(pdf|docx|doc|txt|xlsx|xls|csv|json|md|html|htm)$/i, '');
-}
-
-function normalizeAskSourcesDisplayNames(sources) {
-  const arr = Array.isArray(sources) ? sources : [];
-  return arr.map((s) => {
-    const filename = String(s?.filename || s?.document_name || '').trim();
-    if (!filename) return s;
-    const display = toDisplayDocumentName(filename);
-    return {
-      ...s,
-      filename: display,
-      document_name: display
-    };
-  });
 }
 
 const ASK_DETERMINISTIC_CACHE_TTL_MS = 10 * 60 * 1000;
@@ -1432,7 +1410,7 @@ function buildMissingDataReportFromText(text, userLang) {
 }
 
 function extractSourceAnchor(source) {
-  const filename = toDisplayDocumentName(String(source?.filename || source?.document_name || '').trim());
+  const filename = String(source?.filename || source?.document_name || '').trim();
   const excerpt = String(source?.excerpt || source?.preview || '').trim();
   const sheetMatch = excerpt.match(/\[גיליון:\s*([^\]\n]+)\]/i) || excerpt.match(/sheet\s*[:=-]\s*([^\n,;]+)/i);
   const rowMatch =
@@ -1476,7 +1454,7 @@ function buildSourcesFromFileContext(fileContext) {
     const body = firstNl >= 0 ? sec.slice(firstNl + 1).trim() : '';
     if (!header || !body) continue;
     out.push({
-      filename: toDisplayDocumentName(header.replace(/\s+---$/, '').trim()),
+      filename: header.replace(/\s+---$/, '').trim(),
       excerpt: body.slice(0, 1200)
     });
   }
@@ -1718,7 +1696,7 @@ ${fileContext}`;
         }
         const responsePayload = {
           reply: normalizeAskReplyFormatting(normalizedReply, targetedSources, userLang),
-          sources: normalizeAskSourcesDisplayNames(targetedSources),
+          sources: targetedSources,
           mode: 'all_files_targeted_filename',
           target_filenames: targetedLogicalFilenames
         };
@@ -1939,7 +1917,7 @@ ${fileContext}`;
       const evidenceSources = ensureDocumentSourcesPresent(sources, rows.length ? rows : relevant, fallbackFileContextUsed);
       const responsePayload = {
         reply: normalizeAskReplyFormatting(reply, evidenceSources, userLang),
-        sources: normalizeAskSourcesDisplayNames(appendProjectMetadataSource(evidenceSources, projectMetadata?.text)),
+        sources: appendProjectMetadataSource(evidenceSources, projectMetadata?.text),
         mode: 'all_files_rag',
         results_count: rows.length,
         target_filenames: targetedLogicalFilenames
@@ -2144,7 +2122,7 @@ ${fileContext}`
     // Ask Matriya: no RAG fail-safe sanitizer — the model already sees full document text in the system message.
     const responsePayload = {
       reply: normalizeAskReplyFormatting(reply, selectedSources, userLang),
-      sources: normalizeAskSourcesDisplayNames(selectedSources)
+      sources: selectedSources
     };
     if (deterministicKey) setAskDeterministicCache(deterministicKey, responsePayload);
     return res.json(responsePayload);
