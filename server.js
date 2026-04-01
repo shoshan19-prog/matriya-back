@@ -1307,6 +1307,23 @@ function mapIndexedSourceLabelToFilename(index, sources) {
   return fn || null;
 }
 
+function mapIndexedSourceLabelToAnchor(index, sources, userLang) {
+  const i = Number(index);
+  if (!Number.isFinite(i) || i < 1) return null;
+  const docs = (Array.isArray(sources) ? sources : []).filter((s) => {
+    const fn = String(s?.filename || s?.document_name || '').trim();
+    return fn && !/^project metadata \(projects\/materials\)$/i.test(fn);
+  });
+  const hit = docs[i - 1];
+  if (!hit) return null;
+  const a = extractSourceAnchor(hit);
+  if (!a?.filename) return null;
+  if (userLang === 'he') {
+    return `${a.filename} | גיליון: ${a.sheet || 'לא זוהה'} | שורה/טווח: ${a.rowRange || 'לא זוהה'}`;
+  }
+  return `${a.filename} | sheet: ${a.sheet || 'unknown'} | row/range: ${a.rowRange || 'unknown'}`;
+}
+
 function normalizeAskReplyFormatting(replyText, sources, userLang) {
   let txt = String(replyText || '').trim();
   if (!txt) return txt;
@@ -1316,13 +1333,13 @@ function normalizeAskReplyFormatting(replyText, sources, userLang) {
 
   // Replace "Source N"/"מקור N" markers with actual filenames when possible.
   txt = txt.replace(/\[(?:Source|מקור)\s*(\d+)\]/gi, (_m, n) => {
-    const fn = mapIndexedSourceLabelToFilename(n, sources);
-    return fn ? `[${fn}]` : _m;
+    const anchor = mapIndexedSourceLabelToAnchor(n, sources, userLang);
+    return anchor ? `[${anchor}]` : _m;
   });
   txt = txt.replace(/(?:Source|מקור)\s*(\d+)/gi, (_m, n) => {
-    const fn = mapIndexedSourceLabelToFilename(n, sources);
-    if (!fn) return _m;
-    return userLang === 'he' ? `מקור: ${fn}` : `Source: ${fn}`;
+    const anchor = mapIndexedSourceLabelToAnchor(n, sources, userLang);
+    if (!anchor) return _m;
+    return userLang === 'he' ? `מקור: ${anchor}` : `Source: ${anchor}`;
   });
 
   return txt;
@@ -1371,6 +1388,90 @@ function detectMissingDataIntent(query) {
 function detectFormulaValidationIntent(query) {
   const q = String(query || '').toLowerCase();
   return /פורמול|formulation|formula|השוואה|compare|comparison|delta|Δ|אחוז|percentage|components|רכיב/.test(q);
+}
+
+function escapeRegExp(s) {
+  return String(s || '').replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+function detectQuantityIntentMaterial(query) {
+  const q = String(query || '').trim();
+  if (!q) return null;
+  if (!/(מה\s+הכמות\s+של|כמה\s+אחוז|אחוז(?:ים)?\s+של|what\s+is\s+the\s+(?:amount|quantity|percent|percentage)\s+of|how\s+much\s+of)/i.test(q)) {
+    return null;
+  }
+  const quoted = q.match(/["'“”]([^"'“”]{2,120})["'“”]/);
+  if (quoted && quoted[1]) return quoted[1].trim();
+  const byOf = q.match(/(?:של|of)\s+([A-Za-z0-9_\-./ ]{2,120})$/i) || q.match(/(?:של|of)\s+([A-Za-z0-9_\-./ ]{2,120})/i);
+  return byOf && byOf[1] ? byOf[1].trim() : null;
+}
+
+function parsePercentNearMaterial(text, material, windowChars = 220) {
+  const src = String(text || '');
+  if (!src || !material) return null;
+  const matRe = new RegExp(escapeRegExp(material).replace(/\s+/g, '\\s+'), 'ig');
+  let m;
+  while ((m = matRe.exec(src)) !== null) {
+    const start = Math.max(0, m.index - 40);
+    const end = Math.min(src.length, m.index + m[0].length + windowChars);
+    const win = src.slice(start, end);
+    const pctMatch = win.match(/(\d+(?:[.,]\d+)?)\s*%/);
+    if (pctMatch && pctMatch[1]) {
+      const n = Number(String(pctMatch[1]).replace(',', '.'));
+      if (Number.isFinite(n) && n >= 0 && n <= 100) return n;
+    }
+    const fracMatch = win.match(/(?:^|[,\t; ])(0?\.\d+)(?=[,\t; ]|$)/);
+    if (fracMatch && fracMatch[1]) {
+      const n = Number(fracMatch[1]);
+      if (Number.isFinite(n) && n >= 0 && n <= 1) return n * 100;
+    }
+  }
+  return null;
+}
+
+function formatPct(n) {
+  if (!Number.isFinite(n)) return null;
+  const v = Math.round(n * 100) / 100;
+  return Number.isInteger(v) ? String(v) : String(v).replace(/\.?0+$/, '');
+}
+
+function buildRowsFromFileContext(fileContext) {
+  const text = String(fileContext || '');
+  if (!text.trim()) return [];
+  const sections = text.split(/\n---\s+/).map((s) => s.trim()).filter(Boolean);
+  const out = [];
+  for (const sec of sections) {
+    const firstNl = sec.indexOf('\n');
+    const header = firstNl >= 0 ? sec.slice(0, firstNl).trim() : sec.trim();
+    const body = firstNl >= 0 ? sec.slice(firstNl + 1).trim() : '';
+    if (!header || !body) continue;
+    out.push({ filename: header.replace(/\s+---$/, '').trim(), text: body });
+  }
+  return out;
+}
+
+function tryDeterministicQuantityFromRows(query, rows, userLang) {
+  const material = detectQuantityIntentMaterial(query);
+  if (!material) return null;
+  const arr = Array.isArray(rows) ? rows : [];
+  for (const r of arr) {
+    const text = String(r?.text || r?.document || '').trim();
+    if (!text) continue;
+    const pct = parsePercentNearMaterial(text, material);
+    if (!Number.isFinite(pct)) continue;
+    const fmt = formatPct(pct);
+    if (!fmt) continue;
+    const fn = String(r?.filename || r?.metadata?.filename || '').trim();
+    if (userLang === 'he') {
+      return fn
+        ? `הכמות של ${material} היא ${fmt}% (מקור: ${fn}).`
+        : `הכמות של ${material} היא ${fmt}%.`;
+    }
+    return fn
+      ? `The amount of ${material} is ${fmt}% (source: ${fn}).`
+      : `The amount of ${material} is ${fmt}%.`;
+  }
+  return null;
 }
 
 function detectInvalidFormulaSumFromText(text, tolerance = 0.5) {
@@ -1439,7 +1540,7 @@ function hasSpreadsheetAnchoredSource(sources) {
   const arr = Array.isArray(sources) ? sources : [];
   return arr.some((s) => {
     const a = extractSourceAnchor(s);
-    return a.filename && a.sheet && a.rowRange;
+    return a.filename && a.sheet;
   });
 }
 
@@ -1618,6 +1719,12 @@ ${fileContext}`;
           { role: 'user', content: message }
         ];
         let reply = userLang === 'he' ? RAG_INSUFFICIENT_SUPPORT_MESSAGE_HE : 'There is no supporting information in the system for this question.';
+        const deterministicQtyTargeted = tryDeterministicQuantityFromRows(
+          message,
+          loaded.map((it) => ({ filename: it.filename, text: String(it.text || '') })),
+          userLang
+        );
+        if (deterministicQtyTargeted) reply = deterministicQtyTargeted;
         if (openaiKey) {
           try {
             const response = await axios.post(
@@ -1637,7 +1744,7 @@ ${fileContext}`;
               }
             );
             const ai = String(response.data?.choices?.[0]?.message?.content || '').trim();
-            if (ai) reply = ai;
+            if (ai && !deterministicQtyTargeted) reply = ai;
           } catch (e) {
             logger.warn(`Ask Matriya targeted filename completion failed: ${e.message}`);
           }
@@ -1787,6 +1894,14 @@ ${fileContext}`;
         .map((r) => String(r?.document || r?.text || ''))
         .filter(Boolean)
         .join('\n');
+      const deterministicQtyAllFiles = tryDeterministicQuantityFromRows(
+        message,
+        rows.map((r) => ({
+          filename: String(r?.metadata?.filename || ''),
+          text: String(r?.document || r?.text || '')
+        })),
+        userLang
+      );
       if (detectFormulaValidationIntent(message) && detectInvalidFormulaSumFromText(allEvidenceText, 0.5)) {
         const invalidPayload = {
           error: 'INVALID_COMPARISON_INPUT',
@@ -1802,10 +1917,11 @@ ${fileContext}`;
           ? RAG_INSUFFICIENT_SUPPORT_MESSAGE_HE
           : 'There is no supporting information in the system for this question.';
       let reply = String(docResult.answer || '').trim();
+      if (deterministicQtyAllFiles) reply = deterministicQtyAllFiles;
       let fallbackFileContextUsed = '';
       // Fallback for local runs where strict RAG synthesis returns canonical insufficient too often:
       // use the already-retrieved chunks as explicit "Documents" context for Ask Matriya chat completion.
-      if ((!reply || reply === fallbackInsufficient) && openaiKey) {
+      if ((!reply || reply === fallbackInsufficient) && openaiKey && !deterministicQtyAllFiles) {
         const contextRows = rows.length ? rows : relevant;
         const MAX_ALL_FILES_CONTEXT_CHARS = 26000;
         let fileContext = '';
@@ -2063,6 +2179,21 @@ ${fileContext}`
     { role: "user", content: message }
   ];
   try {
+    const deterministicQtySelected = tryDeterministicQuantityFromRows(
+      message,
+      buildRowsFromFileContext(fileContext),
+      userLang
+    );
+    if (deterministicQtySelected) {
+      const selectedDocSources = ensureDocumentSourcesPresent([], [], fileContext);
+      const selectedSources = appendProjectMetadataSource(selectedDocSources, projectMetadata?.text);
+      const responsePayload = {
+        reply: normalizeAskReplyFormatting(deterministicQtySelected, selectedSources, userLang),
+        sources: selectedSources
+      };
+      if (deterministicKey) setAskDeterministicCache(deterministicKey, responsePayload);
+      return res.json(responsePayload);
+    }
     if (detectFormulaValidationIntent(message) && detectInvalidFormulaSumFromText(fileContext, 0.5)) {
       const invalidPayload = {
         error: 'INVALID_COMPARISON_INPUT',

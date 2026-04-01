@@ -25,6 +25,7 @@
     "check:attribution-document-flow": "node scripts/check-attribution-and-document-flow.js",
     "test:ask-matriya-david": "node scripts/run-ask-matriya-david-tests.mjs",
     "verify:ask-project-materials": "node scripts/verify-ask-matriya-project-materials.mjs",
+    "verify:ask-excel-file": "node scripts/verify-ask-matriya-excel-file.mjs",
     "verify:david-three": "node scripts/print-and-verify-david-three-tests.mjs",
     "verify:chai-scope": "node scripts/verify-chai-scope.mjs",
     "check:retrieval-threshold": "node scripts/check-retrieval-similarity-filter.js",
