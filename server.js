@@ -1295,6 +1295,211 @@ function normalizeNoRelevantReply(userLang, replyText) {
   return txt;
 }
 
+function mapIndexedSourceLabelToFilename(index, sources) {
+  const i = Number(index);
+  if (!Number.isFinite(i) || i < 1) return null;
+  const docs = (Array.isArray(sources) ? sources : []).filter((s) => {
+    const fn = String(s?.filename || s?.document_name || '').trim();
+    return fn && !/^project metadata \(projects\/materials\)$/i.test(fn);
+  });
+  const hit = docs[i - 1];
+  const fn = String(hit?.filename || hit?.document_name || '').trim();
+  return fn ? toDisplayDocumentName(fn) : null;
+}
+
+function normalizeAskReplyFormatting(replyText, sources, userLang) {
+  let txt = String(replyText || '').trim();
+  if (!txt) return txt;
+
+  // Hard guard: no Arabic script in HE/EN output.
+  txt = txt.replace(/[\u0600-\u06FF]+/g, '').replace(/\s{2,}/g, ' ').trim();
+
+  // Replace "Source N"/"מקור N" markers with actual filenames when possible.
+  txt = txt.replace(/\[(?:Source|מקור)\s*(\d+)\]/gi, (_m, n) => {
+    const fn = mapIndexedSourceLabelToFilename(n, sources);
+    return fn ? `[${fn}]` : _m;
+  });
+  txt = txt.replace(/(?:Source|מקור)\s*(\d+)/gi, (_m, n) => {
+    const fn = mapIndexedSourceLabelToFilename(n, sources);
+    if (!fn) return _m;
+    return userLang === 'he' ? `מקור: ${fn}` : `Source: ${fn}`;
+  });
+
+  return txt;
+}
+
+function toDisplayDocumentName(name) {
+  const raw = String(name || '').trim();
+  if (!raw) return raw;
+  if (/^project metadata \(projects\/materials\)$/i.test(raw)) return raw;
+  const base = raw.split(/[/\\]/).filter(Boolean).pop() || raw;
+  return base.replace(/\.(pdf|docx|doc|txt|xlsx|xls|csv|json|md|html|htm)$/i, '');
+}
+
+function normalizeAskSourcesDisplayNames(sources) {
+  const arr = Array.isArray(sources) ? sources : [];
+  return arr.map((s) => {
+    const filename = String(s?.filename || s?.document_name || '').trim();
+    if (!filename) return s;
+    const display = toDisplayDocumentName(filename);
+    return {
+      ...s,
+      filename: display,
+      document_name: display
+    };
+  });
+}
+
+const ASK_DETERMINISTIC_CACHE_TTL_MS = 10 * 60 * 1000;
+const ASK_DETERMINISTIC_CACHE_MAX = 200;
+const askDeterministicCache = new Map();
+
+function makeAskDeterministicKey({ message, allFilesScopeRequested, filenames }) {
+  const msg = String(message || '').trim().toLowerCase();
+  const allFlag = allFilesScopeRequested ? 'all_files' : 'selected_files';
+  const files = (Array.isArray(filenames) ? filenames : [])
+    .map((f) => String(f || '').trim().toLowerCase())
+    .filter(Boolean)
+    .sort()
+    .join('|');
+  return `${allFlag}::${msg}::${files}`;
+}
+
+function getAskDeterministicCache(key) {
+  const now = Date.now();
+  const hit = askDeterministicCache.get(key);
+  if (!hit) return null;
+  if (now - hit.ts > ASK_DETERMINISTIC_CACHE_TTL_MS) {
+    askDeterministicCache.delete(key);
+    return null;
+  }
+  return JSON.parse(JSON.stringify(hit.payload));
+}
+
+function setAskDeterministicCache(key, payload) {
+  if (!key) return;
+  if (askDeterministicCache.size >= ASK_DETERMINISTIC_CACHE_MAX) {
+    const firstKey = askDeterministicCache.keys().next().value;
+    if (firstKey) askDeterministicCache.delete(firstKey);
+  }
+  askDeterministicCache.set(key, { ts: Date.now(), payload: JSON.parse(JSON.stringify(payload)) });
+}
+
+function detectMissingDataIntent(query) {
+  const q = String(query || '').toLowerCase();
+  return /missing|חסר|חסרים|מה\s+חסר|נתונים\s+חסרים|incomplete|שלם|קומפליט/.test(q);
+}
+
+function detectFormulaValidationIntent(query) {
+  const q = String(query || '').toLowerCase();
+  return /פורמול|formulation|formula|השוואה|compare|comparison|delta|Δ|אחוז|percentage|components|רכיב/.test(q);
+}
+
+function detectInvalidFormulaSumFromText(text, tolerance = 0.5) {
+  const full = String(text || '');
+  if (!full.trim()) return false;
+  if (/INVALID OUTPUT:\s*row sum not 100%±0\.1/i.test(full)) return true;
+  const lines = full.split(/\r?\n/);
+  for (const line of lines) {
+    const pctMatches = [...line.matchAll(/(\d+(?:\.\d+)?)\s*%/g)].map((m) => Number(m[1]));
+    if (pctMatches.length >= 3) {
+      const s = pctMatches.reduce((a, b) => a + (Number.isFinite(b) ? b : 0), 0);
+      if (Number.isFinite(s) && Math.abs(s - 100) > tolerance) return true;
+    }
+    const fracMatches = [...line.matchAll(/(?:^|[,\t; ])(0?\.\d+)(?=[,\t; ]|$)/g)].map((m) => Number(m[1]));
+    if (fracMatches.length >= 3) {
+      const sf = fracMatches.reduce((a, b) => a + (Number.isFinite(b) ? b : 0), 0) * 100;
+      if (Number.isFinite(sf) && Math.abs(sf - 100) > tolerance) return true;
+    }
+  }
+  return false;
+}
+
+function buildMissingDataReportFromText(text, userLang) {
+  const t = String(text || '');
+  const hasPct = /%|אחוז|percentage/i.test(t);
+  const hasTotalWeight = /total[_\s-]?weight|משקל\s*כולל|סה["'׳״]?כ|total\s*batch|משקל\s*אצווה/i.test(t);
+  const hasSku = /מק["'׳״]?ט|sku|item\s*code|catalog\s*number/i.test(t);
+  const hasMaterials = /material|חומר|רכיב|component/i.test(t);
+  const has = [];
+  const missing = [];
+  (hasMaterials ? has : missing).push(userLang === 'he' ? 'חומרים/רכיבים' : 'materials/components');
+  (hasPct ? has : missing).push(userLang === 'he' ? 'אחוזים' : 'percentages');
+  (hasTotalWeight ? has : missing).push(userLang === 'he' ? 'total_weight' : 'total_weight');
+  (hasSku ? has : missing).push(userLang === 'he' ? 'מק"טים' : 'SKUs');
+  if (userLang === 'he') return `יש: ${has.join(', ') || '—'}.\nחסר: ${missing.join(', ') || '—'}.`;
+  return `Available: ${has.join(', ') || '—'}.\nMissing: ${missing.join(', ') || '—'}.`;
+}
+
+function extractSourceAnchor(source) {
+  const filename = toDisplayDocumentName(String(source?.filename || source?.document_name || '').trim());
+  const excerpt = String(source?.excerpt || source?.preview || '').trim();
+  const sheetMatch = excerpt.match(/\[גיליון:\s*([^\]\n]+)\]/i) || excerpt.match(/sheet\s*[:=-]\s*([^\n,;]+)/i);
+  const rowMatch =
+    excerpt.match(/(?:row|rows|שורה|שורות)\s*[:#-]?\s*(\d+(?:\s*[-–]\s*\d+)?)/i) ||
+    excerpt.match(/^\s*(\d{1,5}\s*[-–]\s*\d{1,5})\s*[,|\t]/m) ||
+    excerpt.match(/^\s*(\d{1,5})\s*[,|\t]/m);
+  const sheet = sheetMatch ? String(sheetMatch[1]).trim() : '';
+  const rowRange = rowMatch ? String(rowMatch[1]).trim() : '';
+  return { filename, sheet, rowRange };
+}
+
+function buildAnchoredSourcesBlock(sources, userLang) {
+  const arr = Array.isArray(sources) ? sources : [];
+  const lines = [];
+  for (const s of arr.slice(0, 5)) {
+    const a = extractSourceAnchor(s);
+    if (!a.filename) continue;
+    lines.push(`- ${a.filename} | גיליון: ${a.sheet || 'לא זוהה'} | שורה/טווח: ${a.rowRange || 'לא זוהה'}`);
+  }
+  if (lines.length === 0) return '';
+  if (userLang === 'he') return `\n\nעיגון מקור:\n${lines.join('\n')}`;
+  return `\n\nSource anchors:\n${lines.join('\n')}`;
+}
+
+function hasSpreadsheetAnchoredSource(sources) {
+  const arr = Array.isArray(sources) ? sources : [];
+  return arr.some((s) => {
+    const a = extractSourceAnchor(s);
+    return a.filename && a.sheet && a.rowRange;
+  });
+}
+
+function buildSourcesFromFileContext(fileContext) {
+  const text = String(fileContext || '');
+  if (!text.trim()) return [];
+  const sections = text.split(/\n---\s+/).map((s) => s.trim()).filter(Boolean);
+  const out = [];
+  for (const sec of sections.slice(0, 8)) {
+    const firstNl = sec.indexOf('\n');
+    const header = firstNl >= 0 ? sec.slice(0, firstNl).trim() : sec.trim();
+    const body = firstNl >= 0 ? sec.slice(firstNl + 1).trim() : '';
+    if (!header || !body) continue;
+    out.push({
+      filename: toDisplayDocumentName(header.replace(/\s+---$/, '').trim()),
+      excerpt: body.slice(0, 1200)
+    });
+  }
+  return out;
+}
+
+function ensureDocumentSourcesPresent(primarySources, fallbackRows = [], fallbackFileContext = '') {
+  const base = Array.isArray(primarySources) ? primarySources.filter(Boolean) : [];
+  const hasDoc = base.some((s) => {
+    const fn = String(s?.filename || s?.document_name || '').trim();
+    return fn && !/^project metadata \(projects\/materials\)$/i.test(fn);
+  });
+  if (hasDoc) return base;
+
+  const fromRows = buildAnswerSourcesFromRetrieval(Array.isArray(fallbackRows) ? fallbackRows : []);
+  if (fromRows.length > 0) return fromRows;
+
+  const fromContext = buildSourcesFromFileContext(fallbackFileContext);
+  if (fromContext.length > 0) return fromContext;
+
+  return base;
+}
+
 /**
  * Ask Matriya: full indexed text (or first chunk fallback) into the chat prompt — not vector RAG retrieval.
  */
@@ -1356,6 +1561,18 @@ app.post("/ask-matriya", requireAuth, askMatriyaMulter, async (req, res) => {
     if (typeof f === 'string') try { const a = JSON.parse(f); return Array.isArray(a) ? a.filter(x => typeof x === 'string' && x.trim()) : []; } catch (_) { return []; }
     return [];
   })();
+  const deterministicKey =
+    files.length === 0
+      ? makeAskDeterministicKey({
+          message,
+          allFilesScopeRequested,
+          filenames: allFilesScopeRequested ? [] : filenames
+        })
+      : null;
+  if (deterministicKey) {
+    const cached = getAskDeterministicCache(deterministicKey);
+    if (cached) return res.json(cached);
+  }
   const MAX_FILE_CONTEXT_CHARS = 80000;
   const MAX_HISTORY_MESSAGES = 20;
   const openaiKey = settings.OPENAI_API_KEY;
@@ -1431,7 +1648,7 @@ ${fileContext}`;
                 model: 'gpt-4o-mini',
                 messages: llmMessages,
                 max_tokens: 1200,
-                temperature: 0.2
+                temperature: 0
               },
               {
                 headers: {
@@ -1463,13 +1680,50 @@ ${fileContext}`;
             sources: []
           });
         }
-        const normalizedReply = normalizeNoRelevantReply(userLang, reply);
-        return res.json({
-          reply: normalizedReply,
-          sources: appendProjectMetadataSource(buildAnswerSourcesFromRetrieval(pseudoRows), projectMetadata?.text),
+        let normalizedReply = normalizeNoRelevantReply(userLang, reply);
+        const targetedDocSources = ensureDocumentSourcesPresent(buildAnswerSourcesFromRetrieval(pseudoRows), pseudoRows, fileContext);
+        const targetedSources = appendProjectMetadataSource(targetedDocSources, projectMetadata?.text);
+        const targetedSpreadsheetMode =
+          loaded.some((it) => isAskMatriyaSpreadsheetFilename(it.filename)) ||
+          targetedSources.some((s) => /\[גיליון:/.test(String(s?.excerpt || s?.preview || '')));
+        if (detectFormulaValidationIntent(message) && detectInvalidFormulaSumFromText(fileContext, 0.5)) {
+          const invalidPayload = {
+            error: 'INVALID_COMPARISON_INPUT',
+            message: 'INVALID',
+            status: 'INVALID_COMPARISON_INPUT',
+            sources: targetedSources
+          };
+          if (deterministicKey) setAskDeterministicCache(deterministicKey, invalidPayload);
+          return res.status(422).json(invalidPayload);
+        }
+        if (detectMissingDataIntent(message)) {
+          normalizedReply = buildMissingDataReportFromText(fileContext, userLang);
+        }
+        if (targetedSpreadsheetMode && !hasSpreadsheetAnchoredSource(targetedSources)) {
+          const noAnchorReply =
+            userLang === 'he'
+              ? 'לא ניתן לענות ללא עיגון מלא: קובץ + גיליון + שורה/טווח.'
+              : 'Cannot answer without full grounding: file + sheet + row/range.';
+          const noAnchorPayload = {
+            reply: noAnchorReply,
+            sources: targetedSources,
+            mode: 'all_files_targeted_filename',
+            target_filenames: targetedLogicalFilenames
+          };
+          if (deterministicKey) setAskDeterministicCache(deterministicKey, noAnchorPayload);
+          return res.status(422).json(noAnchorPayload);
+        }
+        if (targetedSpreadsheetMode) {
+          normalizedReply = `${normalizedReply}${buildAnchoredSourcesBlock(targetedSources, userLang)}`;
+        }
+        const responsePayload = {
+          reply: normalizeAskReplyFormatting(normalizedReply, targetedSources, userLang),
+          sources: normalizeAskSourcesDisplayNames(targetedSources),
           mode: 'all_files_targeted_filename',
           target_filenames: targetedLogicalFilenames
-        });
+        };
+        if (deterministicKey) setAskDeterministicCache(deterministicKey, responsePayload);
+        return res.json(responsePayload);
       }
       const targetFilter = targetedLogicalFilenames.length ? { filenames: targetedLogicalFilenames } : null;
       const nPre = rag.getDocAgentRetrievalCount ? rag.getDocAgentRetrievalCount(targetFilter) : 12;
@@ -1548,11 +1802,29 @@ ${fileContext}`;
       rows = filterRowsToTargetFilenames(rows, targetedLogicalFilenames);
       rows = filterRetrievalRowsByAnswerBinding(rows, docResult.answer || '');
       const sources = buildAnswerSourcesFromRetrieval(rows);
+      let allFilesSpreadsheetMode =
+        rows.some((r) => isAskMatriyaSpreadsheetFilename(String(r?.metadata?.filename || ''))) ||
+        sources.some((s) => /\[גיליון:/.test(String(s?.excerpt || s?.preview || '')));
+      const allEvidenceText = rows
+        .map((r) => String(r?.document || r?.text || ''))
+        .filter(Boolean)
+        .join('\n');
+      if (detectFormulaValidationIntent(message) && detectInvalidFormulaSumFromText(allEvidenceText, 0.5)) {
+        const invalidPayload = {
+          error: 'INVALID_COMPARISON_INPUT',
+          message: 'INVALID',
+          status: 'INVALID_COMPARISON_INPUT',
+          sources: appendProjectMetadataSource(sources, projectMetadata?.text)
+        };
+        if (deterministicKey) setAskDeterministicCache(deterministicKey, invalidPayload);
+        return res.status(422).json(invalidPayload);
+      }
       const fallbackInsufficient =
         userLang === 'he'
           ? RAG_INSUFFICIENT_SUPPORT_MESSAGE_HE
           : 'There is no supporting information in the system for this question.';
       let reply = String(docResult.answer || '').trim();
+      let fallbackFileContextUsed = '';
       // Fallback for local runs where strict RAG synthesis returns canonical insufficient too often:
       // use the already-retrieved chunks as explicit "Documents" context for Ask Matriya chat completion.
       if ((!reply || reply === fallbackInsufficient) && openaiKey) {
@@ -1575,7 +1847,9 @@ ${fileContext}`;
               : chunk.slice(0, MAX_ALL_FILES_CONTEXT_CHARS - fileContext.length);
         }
         if (fileContext.trim()) {
+          fallbackFileContextUsed = fileContext;
           const spreadsheetMode = contextHasSpreadsheet || /\[גיליון:/.test(fileContext);
+          allFilesSpreadsheetMode = allFilesSpreadsheetMode || spreadsheetMode;
           const comparisonQuery =
             /השוואה|לעומת|\sמול\s|A\s+vs\s+B|דלתא|Δ|הפרש\s+בין|שתי\s+גרסאות|שתי\s+פורמולצ|compare|comparison|versus|vs\.?|delta|formulation/i.test(
               message
@@ -1610,7 +1884,7 @@ ${fileContext}`;
                 model: 'gpt-4o-mini',
                 messages: llmMessages,
                 max_tokens: spreadsheetMode ? 2048 : 1024,
-                temperature: 0.25
+                temperature: 0
               },
               {
                 headers: {
@@ -1629,6 +1903,27 @@ ${fileContext}`;
       }
       if (!reply) reply = fallbackInsufficient;
       reply = normalizeNoRelevantReply(userLang, reply);
+      if (detectMissingDataIntent(message)) {
+        reply = buildMissingDataReportFromText(allEvidenceText, userLang);
+      }
+      if (allFilesSpreadsheetMode && !hasSpreadsheetAnchoredSource(sources)) {
+        const noAnchorReply =
+          userLang === 'he'
+            ? 'לא ניתן לענות ללא עיגון מלא: קובץ + גיליון + שורה/טווח.'
+            : 'Cannot answer without full grounding: file + sheet + row/range.';
+        const noAnchorPayload = {
+          reply: noAnchorReply,
+          sources: appendProjectMetadataSource(sources, projectMetadata?.text),
+          mode: 'all_files_rag',
+          results_count: rows.length,
+          target_filenames: targetedLogicalFilenames
+        };
+        if (deterministicKey) setAskDeterministicCache(deterministicKey, noAnchorPayload);
+        return res.status(422).json(noAnchorPayload);
+      }
+      if (allFilesSpreadsheetMode) {
+        reply = `${reply}${buildAnchoredSourcesBlock(sources, userLang)}`;
+      }
       const allFilesOutGate = evaluateComparisonOutputMode(message, reply);
       if (allFilesOutGate.required && !allFilesOutGate.ok) {
         return res.status(422).json({
@@ -1641,13 +1936,16 @@ ${fileContext}`;
           generation_blocked: true
         });
       }
-      return res.json({
-        reply,
-        sources: appendProjectMetadataSource(sources, projectMetadata?.text),
+      const evidenceSources = ensureDocumentSourcesPresent(sources, rows.length ? rows : relevant, fallbackFileContextUsed);
+      const responsePayload = {
+        reply: normalizeAskReplyFormatting(reply, evidenceSources, userLang),
+        sources: normalizeAskSourcesDisplayNames(appendProjectMetadataSource(evidenceSources, projectMetadata?.text)),
         mode: 'all_files_rag',
         results_count: rows.length,
         target_filenames: targetedLogicalFilenames
-      });
+      };
+      if (deterministicKey) setAskDeterministicCache(deterministicKey, responsePayload);
+      return res.json(responsePayload);
     } catch (e) {
       logger.error(`Ask Matriya all_files RAG error: ${e.message}`);
       return res.json(askMatriyaControlledFailure(userLang, 'processing_error'));
@@ -1787,13 +2085,23 @@ ${fileContext}`
     { role: "user", content: message }
   ];
   try {
+    if (detectFormulaValidationIntent(message) && detectInvalidFormulaSumFromText(fileContext, 0.5)) {
+      const invalidPayload = {
+        error: 'INVALID_COMPARISON_INPUT',
+        message: 'INVALID',
+        status: 'INVALID_COMPARISON_INPUT',
+        sources: appendProjectMetadataSource(buildSourcesFromFileContext(fileContext), projectMetadata?.text)
+      };
+      if (deterministicKey) setAskDeterministicCache(deterministicKey, invalidPayload);
+      return res.status(422).json(invalidPayload);
+    }
     const response = await axios.post(
       "https://api.openai.com/v1/chat/completions",
       {
         model: "gpt-4o-mini",
         messages,
         max_tokens: spreadsheetMode ? 2048 : 1024,
-        temperature: hasFileContext ? 0.25 : 0.7
+        temperature: 0
       },
       {
         headers: {
@@ -1805,6 +2113,23 @@ ${fileContext}`
     );
     let reply = response.data?.choices?.[0]?.message?.content?.trim() || "";
     reply = normalizeNoRelevantReply(userLang, reply);
+    if (detectMissingDataIntent(message)) {
+      reply = buildMissingDataReportFromText(fileContext, userLang);
+    }
+    const selectedDocSources = ensureDocumentSourcesPresent([], [], fileContext);
+    const selectedSources = appendProjectMetadataSource(selectedDocSources, projectMetadata?.text);
+    if (spreadsheetMode && !hasSpreadsheetAnchoredSource(selectedSources)) {
+      const noAnchorReply =
+        userLang === 'he'
+          ? 'לא ניתן לענות ללא עיגון מלא: קובץ + גיליון + שורה/טווח.'
+          : 'Cannot answer without full grounding: file + sheet + row/range.';
+      const noAnchorPayload = { reply: noAnchorReply, sources: selectedSources };
+      if (deterministicKey) setAskDeterministicCache(deterministicKey, noAnchorPayload);
+      return res.status(422).json(noAnchorPayload);
+    }
+    if (spreadsheetMode) {
+      reply = `${reply}${buildAnchoredSourcesBlock(selectedSources, userLang)}`;
+    }
     const selectedOutGate = evaluateComparisonOutputMode(message, reply);
     if (selectedOutGate.required && !selectedOutGate.ok) {
       return res.status(422).json({
@@ -1817,7 +2142,12 @@ ${fileContext}`
       });
     }
     // Ask Matriya: no RAG fail-safe sanitizer — the model already sees full document text in the system message.
-    return res.json({ reply, sources: appendProjectMetadataSource([], projectMetadata?.text) });
+    const responsePayload = {
+      reply: normalizeAskReplyFormatting(reply, selectedSources, userLang),
+      sources: normalizeAskSourcesDisplayNames(selectedSources)
+    };
+    if (deterministicKey) setAskDeterministicCache(deterministicKey, responsePayload);
+    return res.json(responsePayload);
   } catch (e) {
     const status = e.response?.status;
     const msg = e.response?.data?.error?.message || e.message || "OpenAI request failed";
@@ -3047,13 +3377,21 @@ if (!process.env.VERCEL) {
   const DEV_LISTEN_RETRY_DELAY_MS = Math.max(200, parseInt(process.env.DEV_LISTEN_RETRY_DELAY_MS || '1200', 10) || 1200);
 
   const startServerWithRetry = (attempt = 1) => {
-    const server = app.listen(settings.API_PORT, settings.API_HOST, () => {
+    const server = app.listen(settings.API_PORT, settings.API_HOST);
+    server.once('listening', () => {
       logger.info(`Server running on http://${settings.API_HOST}:${settings.API_PORT}`);
     });
-    server.on('error', (err) => {
+    server.once('error', (err) => {
       if (err?.code === 'EADDRINUSE' && attempt < DEV_LISTEN_RETRY_MAX) {
         logger.warn(
           `Port ${settings.API_PORT} is busy (attempt ${attempt}/${DEV_LISTEN_RETRY_MAX}). Retrying in ${DEV_LISTEN_RETRY_DELAY_MS}ms...`
+        );
+        setTimeout(() => startServerWithRetry(attempt + 1), DEV_LISTEN_RETRY_DELAY_MS);
+        return;
+      }
+      if (err?.code === 'EADDRINUSE') {
+        logger.warn(
+          `Port ${settings.API_PORT} is still busy after ${DEV_LISTEN_RETRY_MAX} attempts. Continuing retries every ${DEV_LISTEN_RETRY_DELAY_MS}ms until port is free...`
         );
         setTimeout(() => startServerWithRetry(attempt + 1), DEV_LISTEN_RETRY_DELAY_MS);
         return;
