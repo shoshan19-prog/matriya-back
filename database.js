@@ -544,6 +544,13 @@ const ResearchLoopRun = sequelize ? sequelize.define('ResearchLoopRun', {
     type: DataTypes.INTEGER,
     allowNull: true
   },
+  // Phase A (shadow): persisted evidence sources for the run.
+  // Requires sql/add_research_loop_runs_evidence.sql to be applied.
+  evidence: {
+    type: DataTypes.JSONB,
+    allowNull: true,
+    defaultValue: []
+  },
   created_at: {
     type: DataTypes.DATE,
     defaultValue: DataTypes.NOW

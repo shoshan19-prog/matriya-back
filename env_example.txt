@@ -82,3 +82,22 @@ CHUNK_OVERLAP=100
 # MATRIYA_DAVID_ACCEPTANCE_FIXTURES=1
 # Without fixtures: Q2 needs retrieved text with at least one triple from the matrix below; Q3 needs a
 # snippet containing "Expansion Ratio = 18.5" (or expansion+ratio+18.5). Q1 is always insufficient.
+
+# ---------------------------------------------------------------------------
+# Phase A — Research-Engine activation (shadow mode only).
+# These three flags only ADD logging. They do NOT block answers.
+# Default: ON when NODE_ENV is anything other than "production".
+# To enable in production, set explicitly to "true" (or "1").
+# To disable in dev, set explicitly to "false" (or "0").
+# ---------------------------------------------------------------------------
+# When on: research_loop_runs.evidence is populated with the source chunks
+# returned to the client. Requires sql/add_research_loop_runs_evidence.sql.
+# MATRIYA_PERSIST_EVIDENCE=true
+#
+# When on: every /api/research/run gate decision and every /ask-matriya call
+# writes a row to decision_audit_log. No response shape change.
+# MATRIYA_DECISION_AUDIT=true
+#
+# When on: kernel-v16 helpers compute what they WOULD decide and the verdict
+# is stored under decision_audit_log.details.shadow_decision. Never blocks.
+# MATRIYA_KERNEL_SHADOW=true

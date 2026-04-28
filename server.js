@@ -68,6 +68,15 @@ import {
 } from './lib/davidAskMatriyaAcceptance.js';
 import { repairUtf8MisdecodedAsLatin1 } from './lib/textEncoding.js';
 import { RAG_INSUFFICIENT_SUPPORT_MESSAGE_HE } from './lib/ragEvidenceFailSafe.js';
+// Phase A (shadow) — research-engine activation flags + shadow kernel.
+// All three are pure read/log paths; none of them block or mutate responses.
+import {
+  isDecisionAuditEnabled,
+  isKernelShadowEnabled,
+  getPhaseAFlagsSnapshot
+} from './lib/researchEngineFlags.js';
+import { computeShadowVerdict, mergeShadowIntoDetails } from './lib/shadowKernel.js';
+import { writeAskMatriyaShadowAudit } from './lib/askMatriyaShadowAudit.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -205,10 +214,32 @@ async function logPolicyEnforcement(sessionId, stage) {
   }
 }
 
-/** Scope 2 + Kernel Amendment v1.2: log every gate decision with confidence_score, basis_count, model_version_hash, complexity_context */
+/** Scope 2 + Kernel Amendment v1.2: log every gate decision with confidence_score, basis_count, model_version_hash, complexity_context.
+ *  Phase A (shadow): when MATRIYA_KERNEL_SHADOW is on and `opts.shadow_kernel_inputs` is provided,
+ *  compute the kernel-v16 verdict and merge it into `details.shadow_decision`. Never blocks. */
 async function logDecisionAudit(sessionId, stage, decision, responseType, requestQuery, inputsSnapshot, details = null, opts = {}) {
   if (!DecisionAuditLog) return;
+  if (!isDecisionAuditEnabled()) return;
   const gateCtx = getGateObservabilityContext();
+  let mergedDetails = details || null;
+  try {
+    if (isKernelShadowEnabled() && opts && opts.shadow_kernel_inputs) {
+      const shadow = computeShadowVerdict({
+        stage,
+        kernel_signals: opts.shadow_kernel_inputs.kernel_signals || null,
+        data_anchors: opts.shadow_kernel_inputs.data_anchors || null,
+        methodology_flags: opts.shadow_kernel_inputs.methodology_flags || null,
+        l_validation: opts.shadow_kernel_inputs.l_validation || null,
+        evidence_count:
+          opts.shadow_kernel_inputs.evidence_count != null
+            ? opts.shadow_kernel_inputs.evidence_count
+            : (opts.basis_count != null ? opts.basis_count : (gateCtx.basis_count || 0))
+      });
+      mergedDetails = mergeShadowIntoDetails(mergedDetails, shadow);
+    }
+  } catch (e) {
+    logger.warn(`[shadow] verdict computation failed: ${e.message}`);
+  }
   try {
     await DecisionAuditLog.create({
       session_id: sessionId,
@@ -217,7 +248,7 @@ async function logDecisionAudit(sessionId, stage, decision, responseType, reques
       response_type: responseType || null,
       request_query: requestQuery != null ? String(requestQuery).slice(0, 4000) : null,
       inputs_snapshot: inputsSnapshot || null,
-      details: details || null,
+      details: mergedDetails,
       confidence_score: opts.confidence_score != null ? opts.confidence_score : gateCtx.confidence_score,
       basis_count: opts.basis_count != null ? opts.basis_count : gateCtx.basis_count,
       model_version_hash: opts.model_version_hash || gateCtx.model_version_hash,
@@ -697,6 +728,32 @@ const askMatriyaMulter = (req, res, next) => {
 };
 app.post("/ask-matriya", requireAuth, askMatriyaMulter, async (req, res) => {
   const message = (req.body?.message ?? '').trim();
+
+  // Phase A (shadow) — record what the kernel WOULD have decided for this
+  // /ask-matriya call. The mutable `__shadowAuditState` is updated as the
+  // handler progresses; the on-finish hook reads its final values once the
+  // response has been sent. Best-effort, never affects the response.
+  const __shadowAuditState = {
+    enabled: isDecisionAuditEnabled() && !!DecisionAuditLog,
+    query: message,
+    filenames: [],
+    evidence_count: 0,
+    ask_mode: null
+  };
+  if (__shadowAuditState.enabled) {
+    res.on('finish', () => {
+      const decision = res.statusCode < 400 ? 'shadow_allow' : 'shadow_error';
+      writeAskMatriyaShadowAudit({
+        query: __shadowAuditState.query,
+        decision,
+        statusCode: res.statusCode,
+        filenames: __shadowAuditState.filenames,
+        evidenceCount: __shadowAuditState.evidence_count,
+        askMode: __shadowAuditState.ask_mode
+      }).catch(() => { /* swallow — shadow only */ });
+    });
+  }
+
   if (!message) {
     return res.status(400).json({ error: "message is required" });
   }
@@ -726,6 +783,9 @@ app.post("/ask-matriya", requireAuth, askMatriyaMulter, async (req, res) => {
     if (typeof f === 'string') try { const a = JSON.parse(f); return Array.isArray(a) ? a.filter(x => typeof x === 'string' && x.trim()) : []; } catch (_) { return []; }
     return [];
   })();
+  // Phase A (shadow): capture inputs once they are known.
+  __shadowAuditState.filenames = filenames;
+  __shadowAuditState.evidence_count = filenames.length + files.length;
   if (filenames.length === 0 && files.length === 0) {
     return res.status(400).json({
       error: 'יש לבחור לפחות מסמך אחד או להעלות קובץ.',
@@ -769,6 +829,7 @@ app.post("/ask-matriya", requireAuth, askMatriyaMulter, async (req, res) => {
           openaiKey,
           historyForMaterials
         );
+        __shadowAuditState.ask_mode = 'materials_library';
         return res.json({ reply: replyMat, sources: [], ask_mode: 'materials_library' });
       } catch (e) {
         logger.error(
@@ -885,6 +946,7 @@ ${fileContext}`
     logger.info(
       `[ask-matriya routing] response path=DOCUMENTS | spreadsheetMode=${spreadsheetMode} file_context_chars=${String(fileContext || '').length} reply_chars=${reply.length}`
     );
+    __shadowAuditState.ask_mode = 'documents';
     // Ask Matriya: no RAG fail-safe sanitizer — the model already sees full document text in the system message.
     return res.json({ reply, sources: [] });
   } catch (e) {
@@ -1034,7 +1096,7 @@ async function handleMatriyaSearch(req, res) {
           const info = await getRagService().getCollectionInfo();
           complexityContext = { document_count: info?.document_count ?? 0, session_depth: 0 };
         } catch (_) {}
-        await logDecisionAudit(sessionId, stage, 'deny', null, query, { session_id: sessionId, stage, research_gate_locked: !!gate.research_gate_locked, error: gate.error }, null, { complexity_context: complexityContext });
+        await logDecisionAudit(sessionId, stage, 'deny', null, query, { session_id: sessionId, stage, research_gate_locked: !!gate.research_gate_locked, error: gate.error }, null, { complexity_context: complexityContext, shadow_kernel_inputs: krOpts });
         const denyPayload = {
           error: gate.error,
           research_stage_error: true,
@@ -1069,7 +1131,7 @@ async function handleMatriyaSearch(req, res) {
         const info = await getRagService().getCollectionInfo();
         complexityContext = { document_count: info?.document_count ?? 0, session_depth: (gate.session?.completed_stages?.length) ?? 0 };
       } catch (_) {}
-      await logDecisionAudit(responseSessionId, stage, 'allow', responseType, query, { session_id: responseSessionId, stage }, null, { complexity_context: complexityContext });
+      await logDecisionAudit(responseSessionId, stage, 'allow', responseType, query, { session_id: responseSessionId, stage }, null, { complexity_context: complexityContext, shadow_kernel_inputs: krOpts });
       const enforcement = await getEnforcement(responseSessionId, stage, gate.session);
       if (enforcement) await logPolicyEnforcement(responseSessionId, stage);
 
@@ -1127,7 +1189,10 @@ async function handleMatriyaSearch(req, res) {
             retrieval_similarity_gate: true
           },
           null,
-          { complexity_context: complexityContext }
+          {
+            complexity_context: complexityContext,
+            shadow_kernel_inputs: { ...(krOpts || {}), evidence_count: 0 }
+          }
         );
         return res.status(422).json({
           error: 'INSUFFICIENT_EVIDENCE',
@@ -1161,7 +1226,10 @@ async function handleMatriyaSearch(req, res) {
             ...(preGate.violation_id && { violation_id: preGate.violation_id })
           },
           null,
-          { complexity_context: complexityContext }
+          {
+            complexity_context: complexityContext,
+            shadow_kernel_inputs: { ...(krOpts || {}), evidence_count: relevantPre.length }
+          }
         );
         return res.status(preGate.httpStatus).json({
           error: preGate.code,
@@ -1188,7 +1256,10 @@ async function handleMatriyaSearch(req, res) {
             gap_type: preGate.partialEvidence.gap_type
           },
           null,
-          { complexity_context: complexityContext }
+          {
+            complexity_context: complexityContext,
+            shadow_kernel_inputs: { ...(krOpts || {}), evidence_count: relevantPre.length }
+          }
         );
         return res.status(200).json({
           ...preGate.partialEvidence,

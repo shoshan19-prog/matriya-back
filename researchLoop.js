@@ -7,6 +7,7 @@ import logger from './logger.js';
 import { ResearchLoopRun } from './database.js';
 import { getJustificationDisplay } from './justificationTemplates.js';
 import { evidenceFromSearchResults } from './lib/openaiFileSearchMatriya.js';
+import { isPersistEvidenceEnabled } from './lib/researchEngineFlags.js';
 
 const AGENT_ORDER = ['analysis', 'research', 'critic', 'synthesis'];
 
@@ -161,7 +162,18 @@ export async function runLoop(sessionId, query, ragService, filterMetadata = nul
 
   const durationMs = Date.now() - startMs;
   const opts = runOptions && typeof runOptions === 'object' ? runOptions : {};
-  const runRecord = await saveRun(sessionId, query, outputs, justifications, false, null, durationMs, opts.pre_justification_text ?? null, opts.doe_design_id ?? null);
+  const runRecord = await saveRun(
+    sessionId,
+    query,
+    outputs,
+    justifications,
+    false,
+    null,
+    durationMs,
+    opts.pre_justification_text ?? null,
+    opts.doe_design_id ?? null,
+    ragEvidenceSources
+  );
   return {
     run_id: runRecord?.id ?? null,
     outputs,
@@ -171,10 +183,21 @@ export async function runLoop(sessionId, query, ragService, filterMetadata = nul
   };
 }
 
-async function saveRun(sessionId, query, outputs, justifications, stoppedByViolation = false, violationId = null, durationMs = null, preJustificationText = null, doeDesignId = null) {
+async function saveRun(
+  sessionId,
+  query,
+  outputs,
+  justifications,
+  stoppedByViolation = false,
+  violationId = null,
+  durationMs = null,
+  preJustificationText = null,
+  doeDesignId = null,
+  evidence = []
+) {
   if (!ResearchLoopRun) return null;
   try {
-    const run = await ResearchLoopRun.create({
+    const row = {
       session_id: sessionId,
       query,
       outputs: outputs || {},
@@ -184,9 +207,44 @@ async function saveRun(sessionId, query, outputs, justifications, stoppedByViola
       duration_ms: durationMs,
       pre_justification_text: preJustificationText || null,
       doe_design_id: doeDesignId || null
-    });
+    };
+    // Phase A (shadow): only persist evidence when the flag is on AND the
+    // column exists. Sequelize will silently drop unknown columns when the
+    // model definition was loaded before the migration; the try/catch below
+    // protects against the still-missing-column case.
+    if (isPersistEvidenceEnabled()) {
+      row.evidence = Array.isArray(evidence) ? evidence : [];
+    }
+    const run = await ResearchLoopRun.create(row);
     return run;
   } catch (e) {
+    // If the evidence column is missing (migration not yet applied), retry
+    // without it so we don't regress the existing behaviour.
+    if (
+      isPersistEvidenceEnabled() &&
+      /column .*evidence|"evidence"/i.test(String(e.message || ''))
+    ) {
+      try {
+        const fallback = await ResearchLoopRun.create({
+          session_id: sessionId,
+          query,
+          outputs: outputs || {},
+          justifications: justifications || [],
+          stopped_by_violation: stoppedByViolation,
+          violation_id: violationId,
+          duration_ms: durationMs,
+          pre_justification_text: preJustificationText || null,
+          doe_design_id: doeDesignId || null
+        });
+        logger.warn(
+          'research_loop_runs.evidence column missing; saved run without evidence. Apply sql/add_research_loop_runs_evidence.sql.'
+        );
+        return fallback;
+      } catch (e2) {
+        logger.warn(`Failed to save research loop run (fallback): ${e2.message}`);
+        return null;
+      }
+    }
     logger.warn(`Failed to save research loop run: ${e.message}`);
     return null;
   }
