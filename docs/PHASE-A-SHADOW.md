@@ -77,6 +77,26 @@ psql "$POSTGRES_URL" -c \
 #    pre-shadow baseline. Compare with --raw-output in jq if needed.
 ```
 
+## Known ambiguity #2 — `/ask-matriya` session row per request (STAGING ONLY)
+
+`/ask-matriya` is not session-aware. To satisfy the
+`decision_audit_log.session_id NOT NULL FK` to `research_sessions`, the
+shadow audit writer in `lib/askMatriyaShadowAudit.js` calls the existing
+`getOrCreateSession(null, null)` and **mints one new `research_sessions`
+row per `/ask-matriya` request**.
+
+- ✅ **Approved for staging review only.**
+- ❌ **NOT yet approved for production.**
+
+If we want to keep this behaviour in production we should consider one of:
+
+1. A single shared "ask_matriya" pseudo-session per process startup
+2. A migration to relax the FK so audit rows for ask-matriya can have
+   `session_id IS NULL`
+3. Keep one row per request (acceptable but grows `research_sessions`)
+
+The decision is deferred to post-staging review.
+
 ## Rollback
 
 1. Set the three flags to `false` in the environment and restart.
