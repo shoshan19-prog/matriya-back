@@ -3,10 +3,14 @@
   "version": "1.0.0",
   "description": "MATRIYA RAG System API - Node.js Backend",
   "main": "server.js",
+  "bin": {
+    "matriya": "cli/matriya.js"
+  },
   "type": "module",
   "scripts": {
     "start": "node server.js",
     "dev": "node --watch server.js",
+    "matriya": "node cli/matriya.js",
     "test": "npm run test:unit",
     "test:unit": "npm run check:pre-llm-gate && npm run check:attribution-document-flow && npm run verify:david-three && npm run verify:chai-scope && npm run check:retrieval-threshold && npm run check:answer-binding && npm run test:delete-guard && npm run verify:scope-signoff && npm run verify:david-checklist",
     "verify:scope-signoff": "node scripts/verify-scope-signoff.mjs",
@@ -23,6 +27,7 @@
     "check:dashboard": "node scripts/check-dashboard-improvements.js",
     "check:pre-llm-gate": "node scripts/check-pre-llm-gate.js",
     "check:attribution-document-flow": "node scripts/check-attribution-and-document-flow.js",
+    "check:matriya-lite": "node scripts/check-matriya-lite.js",
     "test:ask-matriya-david": "node scripts/run-ask-matriya-david-tests.mjs",
     "verify:david-three": "node scripts/print-and-verify-david-three-tests.mjs",
     "verify:chai-scope": "node scripts/verify-chai-scope.mjs",
