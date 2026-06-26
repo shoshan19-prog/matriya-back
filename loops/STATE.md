@@ -54,5 +54,6 @@ _Last updated: 2026-06-26 (daily-triage run #1)_
 
 > Free-form context the next run needs but that doesn't fit above.
 
+- **🧊 STABILIZATION MODE ACTIVE (from 2026-06-26)** — see `loops/STABILIZATION.md`. Freeze: no new features/adapters/v2/repos, no architecture changes unless a material defect. Allowed: passive PR watch, track PRs to merge, data collection into `loops/metrics.md`. Exit → produce "Loop Engineering v1 Validation Report".
 - **PR #1 watch ACTIVE** under `loops/MONITORING-POLICY.md` — passive/conservative. Auto-fix only for infra (CI fail / merge conflict / lockfile drift / clear infra). Never merge, change app code, refactor, expand scope, or answer design comments on the user's behalf. Non-infra review requests → document + wait for human. Log every event.
 - **Observation Layer v2 — PLANNED, BLOCKED.** Do NOT start until PR #1 is merged AND the system runs several days with no abnormal intervention. Goal: evolve the Loop mechanism from code-only monitoring into a general MATRIYA observation layer covering knowledge, documents, experiments, equipment, and projects (same control plane: STATE/run-log/budget/evidence_level).
