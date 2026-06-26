@@ -5,7 +5,7 @@
 //
 //   run:  node scripts/law-graph-demo.mjs
 //
-import { establishLaw, classifyExperiment, evaluateBreakdownFromEvidence } from '../lawEngine.js';
+import { establishLaw, classifyExperiment, evaluateBreakdownFromEvidence, predict } from '../lawEngine.js';
 
 // reproducible Fresco-style data (same hidden truth as the frontend MVP)
 function mulberry32(s){return()=>{s|=0;s=s+0x6D2B79F5|0;let t=Math.imul(s^s>>>15,1|s);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296;};}
@@ -67,7 +67,39 @@ const humidMinHumidity = Math.min(...humid.map(e=>e.humidity_pct)); // 84
 const recHum = store.gaps[0]?.recommended_experiment.humidity_pct;
 const okDoD = law.status==='broken' && store.breakdowns.length===1 && store.gaps.length===1
   && recHum > dryMaxHumidity && recHum < humidMinHumidity;  // decisive experiment sits in the unexplored gap
+
+// --- L: POST /laws/L1/resolve-breakdown -> birth the successor ----------
+function resolveBreakdown(parent, event, confirming=[]){
+  const { feature, threshold } = event;
+  confirming.forEach(exp=>{ const dom=store.domains.filter(d=>d.law_id===parent.id); const c=classifyExperiment(lawCoef(parent),dom,exp); store.evidence.push({law_id:parent.id,experiment:exp,kind:c.label,residual:c.residual}); });
+  store.gaps.filter(g=>g.law_id===parent.id&&g.breakdown_event_id===event.id&&g.status==='open').forEach(g=>g.status='run');
+  const validExps = store.evidence.filter(e=>e.law_id===parent.id).map(e=>e.experiment).filter(x=>x[feature]<threshold);
+  const est = establishLaw(validExps, parent.x_key, parent.y_key, parent.features);
+  const child = { id:'L2', name:`${parent.name} | ${feature} < ${threshold}`, x_key:parent.x_key, y_key:parent.y_key, a:est.a, b:est.b, tolerance:est.tolerance, noise_std:est.noise_std, features:parent.features, status:'active', version:parent.version+1, parent_law_id:parent.id };
+  store.laws.push(child);
+  est.domains.forEach(d=>store.domains.push({law_id:child.id,...d}));
+  store.domains.push({law_id:child.id, feature, min_value:Math.min(...validExps.map(x=>x[feature])), max_value:threshold});
+  est.inliers.forEach(e=>store.evidence.push({law_id:child.id, experiment:e, kind:'explained', residual:+(e[parent.y_key]-predict(est,e[parent.x_key])).toFixed(3)}));
+  parent.status='superseded'; event.status='resolved'; event.resolved_by_law_id=child.id;
+  return child;
+}
+console.log('\nL — POST /laws/L1/resolve-breakdown (decisive experiment confirmed the boundary):');
+const decisive = { id:'E_decisive', app_pct:40, humidity_pct:78, ttf_days:43.5 }; // just below boundary: law still holds
+const child = resolveBreakdown(law, store.breakdowns[0], [decisive]);
+const childHumDom = store.domains.find(d=>d.law_id===child.id&&d.feature==='humidity_pct');
+console.log(`  ↳ successor ${child.id}: ${child.name}`);
+console.log(`     relation ttf ≈ ${child.a.toFixed(2)}·app + ${child.b.toFixed(1)} | domain humidity ∈ [${childHumDom.min_value}, ${childHumDom.max_value}] | v${child.version} parent=${child.parent_law_id}`);
+console.log(`     parent L1 -> ${law.status};  breakdown -> ${store.breakdowns[0].status} (resolved_by ${store.breakdowns[0].resolved_by_law_id})`);
+console.log('\n  GET /laws/L2/history -> lineage:');
+console.log(`     parent: { id:${child.parent_law_id}, status:${law.status} }`);
+console.log(`     L1 (${law.status}, v${law.version})  →  L2 (${child.status}, v${child.version}, humidity<${store.breakdowns[0].threshold})`);
+
+const okL = child.parent_law_id==='L1' && law.status==='superseded' && store.breakdowns[0].status==='resolved'
+  && childHumDom.max_value===store.breakdowns[0].threshold && store.breakdowns[0].resolved_by_law_id==='L2';
+console.log('\nDoD-L:', okL
+  ? '✓ breakdown confirmed -> child law w/ parent_law_id -> new domain saved -> parent superseded -> breakdown resolved -> lineage parent→child'
+  : '✗ FAILED');
 console.log('\nDoD:', okDoD
   ? '✓ experiment in -> checked vs law -> classified -> breakdown -> ONE decisive experiment -> saved as law history'
   : '✗ FAILED');
-process.exit(okDoD?0:1);
+process.exit(okDoD && okL ? 0 : 1);

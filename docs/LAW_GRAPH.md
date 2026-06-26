@@ -25,7 +25,11 @@ single anomaly. This is FSCTM made durable: **K → C → B → N → L**.
 | GET | `/laws/gaps` | open gap recommendations — *what to run next*, enriched with law + breakdown |
 | GET | `/laws/:id/history` | full lineage: domains, evidence ledger, breakdown events, gap recommendations |
 | POST | `/laws/:id/evidence` | add experiment(s) to a specific law and re-evaluate |
+| POST | `/laws/:id/resolve-breakdown` | **L** — confirm a breakdown and birth a narrowed **successor law**: child gets `parent_law_id` + the new boundary domain, parent → `superseded`, breakdown → `resolved` |
 | GET | `/laws` | list laws |
+
+`GET /laws/:id/history` returns a `lineage` block (`parent` + `children`), so
+the graph shows a **shoshelet / lineage of laws**, not just a list of insights.
 
 ## Why domain scopes only the input variable
 
@@ -55,12 +59,20 @@ C — streaming humid experiments through /laws/check:
 N — GET /laws/gaps:
   🧪 {"humidity_pct":79,"app_pct":40}
      gap in humidity ∈ (74,84); law predicts ttf≈44 while breakdown region ≈11 — maximal disagreement
-L — GET /laws/L1/history: status=broken, evidence explained=24 contradiction=12, breakdown_events=1, gap_recommendations=1
+L — POST /laws/L1/resolve-breakdown (decisive experiment confirms the boundary):
+  ↳ successor L2: ttf~app | humidity_pct < 79   (v2, parent=L1)
+     parent L1 -> superseded;  breakdown -> resolved (resolved_by L2)
+  lineage:  L1 (superseded, v1)  →  L2 (active, v2, humidity<79)
 DoD: ✓ experiment in → checked → classified → breakdown → ONE decisive experiment → saved as law history
+DoD-L: ✓ breakdown confirmed → child law w/ parent_law_id → new domain → parent superseded → breakdown resolved → lineage parent→child
 ```
 
 The breakdown fires only once enough structure accumulates (3rd contradicting
-experiment), never on a lone anomaly — the guard against false discovery.
+experiment), never on a lone anomaly — the guard against false discovery. The
+successor law `L2` narrows the relation to its still-valid region
+(`humidity < 79`); the parent is retired but kept for lineage. That is the
+full **K → C → B → N → L** loop: the graph now *evolves*, it doesn't just
+record.
 
 ## Limits (honest)
 

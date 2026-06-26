@@ -126,8 +126,16 @@ router.get('/:id/history', ensureDb, requireAuth, async (req, res) => {
     GapRecommendation.findAll({ where: { law_id: law.id }, order: [['created_at', 'ASC']] }),
   ]);
   const ev = evidence.map((e) => e.toJSON());
+  const [parent, children] = await Promise.all([
+    law.parent_law_id ? Law.findByPk(law.parent_law_id) : null,
+    Law.findAll({ where: { parent_law_id: law.id }, order: [['version', 'ASC']] }),
+  ]);
   res.json({
     law: law.toJSON(),
+    lineage: {
+      parent: parent ? { id: parent.id, name: parent.name, version: parent.version, status: parent.status } : null,
+      children: children.map((c) => ({ id: c.id, name: c.name, version: c.version, status: c.status })),
+    },
     domains: domains.map((d) => d.toJSON()),
     evidence_counts: { explained: ev.filter((e) => e.kind === 'explained').length, contradiction: ev.filter((e) => e.kind === 'contradiction').length, out_of_domain: ev.filter((e) => e.kind === 'out_of_domain').length },
     evidence: ev,
@@ -153,6 +161,63 @@ router.post('/:id/evidence', ensureDb, requireAuth, async (req, res) => {
   }
   const r = sawContradiction ? await reevaluate(law) : { breakdown: null, recommendation: null };
   res.json({ law_id: law.id, added: incoming.length, classifications, breakdown: r.breakdown, recommendation: r.recommendation });
+});
+
+// --- L: resolve a breakdown by birthing a narrowed successor law ----------
+router.post('/:id/resolve-breakdown', ensureDb, requireAuth, async (req, res) => {
+  const parent = await Law.findByPk(req.params.id);
+  if (!parent) return res.status(404).json({ error: 'Law not found' });
+  const { breakdown_event_id, confirming_experiments } = req.body || {};
+  const event = await BreakdownEvent.findByPk(breakdown_event_id);
+  if (!event || event.law_id !== parent.id) return res.status(400).json({ error: 'breakdown_event not found for this law' });
+  if (event.status !== 'open') return res.status(409).json({ error: 'breakdown already resolved' });
+
+  const { feature, threshold } = event; // valid side is feature < threshold; failing side is the breakdown
+
+  // optionally record the decisive experiment(s) that confirm the boundary
+  if (Array.isArray(confirming_experiments) && confirming_experiments.length) {
+    const pdoms = (await LawDomain.findAll({ where: { law_id: parent.id } })).map((d) => d.toJSON());
+    for (const exp of confirming_experiments) {
+      const c = classifyExperiment(lawCoef(parent), pdoms, exp);
+      await LawEvidence.create({ law_id: parent.id, experiment: exp, kind: c.label, residual: c.residual });
+    }
+  }
+  await GapRecommendation.update({ status: 'run' }, { where: { law_id: parent.id, breakdown_event_id: event.id, status: 'open' } });
+
+  // re-establish the law on its still-valid side -> the successor
+  const allEv = (await LawEvidence.findAll({ where: { law_id: parent.id } })).map((e) => e.toJSON().experiment);
+  const validExps = allEv.filter((x) => x[feature] !== undefined && x[feature] < threshold);
+  if (validExps.length < 3) return res.status(422).json({ error: 'not enough valid-side evidence to form a successor law' });
+  const est = establishLaw(validExps, parent.x_key, parent.y_key, parent.features);
+
+  try {
+    const child = await Law.create({
+      name: `${parent.name} | ${feature} < ${threshold}`,
+      x_key: parent.x_key, y_key: parent.y_key, a: est.a, b: est.b,
+      tolerance: est.tolerance, noise_std: est.noise_std, features: parent.features,
+      status: 'active', version: parent.version + 1, parent_law_id: parent.id,
+    });
+    // child domain = input-variable domain + the newly learned boundary on `feature`
+    const domRows = est.domains.map((d) => ({ law_id: child.id, ...d }));
+    domRows.push({ law_id: child.id, feature, min_value: Math.min(...validExps.map((x) => x[feature])), max_value: threshold });
+    await LawDomain.bulkCreate(domRows);
+    await LawEvidence.bulkCreate(est.inliers.map((e) => ({ law_id: child.id, experiment: e, kind: 'explained', residual: +(e[parent.y_key] - (est.a * e[parent.x_key] + est.b)).toFixed(3) })));
+
+    await parent.update({ status: 'superseded', updated_at: new Date() });          // narrowed/retired
+    await event.update({ status: 'resolved', resolved_by_law_id: child.id });        // breakdown closed
+
+    logger.info(`Law ${parent.id} superseded by ${child.id} (boundary ${feature}<${threshold})`);
+    res.status(201).json({
+      parent: { id: parent.id, status: 'superseded' },
+      child: child.toJSON(),
+      child_domains: domRows,
+      breakdown_resolved: event.id,
+      lineage: `${parent.id} -> ${child.id}`,
+    });
+  } catch (e) {
+    logger.error(`resolve-breakdown failed: ${e.message}`);
+    res.status(500).json({ error: 'Could not create successor law', detail: e.message });
+  }
 });
 
 // --- list ----------------------------------------------------------------
