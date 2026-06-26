@@ -15,6 +15,7 @@ import { authRouter, getCurrentUser, requireAuth } from './authEndpoints.js';
 import DocumentProcessor from './documentProcessor.js';
 import axios from 'axios';
 import { adminRouter } from './adminEndpoints.js';
+import { judgmentRouter } from './judgmentEndpoints.js';
 import { StateMachine, Kernel } from './stateMachine.js';
 import {
   validateAndAdvance,
@@ -118,6 +119,7 @@ if (!process.env.VERCEL) {
 // Register routers
 app.use('/auth', authRouter);
 app.use('/admin', adminRouter);
+app.use('/judgments', judgmentRouter);
 
 // Initialize RAG service (lazy initialization to avoid blocking startup)
 let ragService = null;

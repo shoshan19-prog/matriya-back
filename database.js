@@ -708,6 +708,37 @@ const MatriyaAppKv = sequelize
     )
   : null;
 
+/**
+ * Validated Judgment — the atomic unit of industrial intelligence.
+ * An expert decision under uncertainty, with rejected alternatives and a
+ * FALSIFIABLE prediction, that reality grades over time. predictions /
+ * observations / followups are JSONB; outcome + brier are filled on closure.
+ */
+const Judgment = sequelize ? sequelize.define('Judgment', {
+  id: { type: DataTypes.UUID, primaryKey: true, defaultValue: DataTypes.UUIDV4 },
+  domain: { type: DataTypes.STRING, allowNull: false },
+  decided_by: { type: DataTypes.STRING, allowNull: false },
+  decided_at: { type: DataTypes.DATEONLY, allowNull: false, defaultValue: DataTypes.NOW },
+  context: { type: DataTypes.JSONB, allowNull: false, defaultValue: {} },     // { substrate, conditions }
+  problem: { type: DataTypes.TEXT, allowNull: false },
+  decision: { type: DataTypes.TEXT, allowNull: false },
+  rationale: { type: DataTypes.TEXT, allowNull: false },
+  alternatives_considered: { type: DataTypes.JSONB, allowNull: false, defaultValue: [] }, // [{option, why_rejected}]
+  confidence: { type: DataTypes.FLOAT, allowNull: false },                    // expert prior, 0..1
+  evidence_at_decision: { type: DataTypes.JSONB, allowNull: false, defaultValue: [] },
+  predictions: { type: DataTypes.JSONB, allowNull: false, defaultValue: [] }, // falsifiable; required
+  observations: { type: DataTypes.JSONB, allowNull: false, defaultValue: [] },// reality's answers
+  followups: { type: DataTypes.JSONB, allowNull: false, defaultValue: [] },   // scheduled by horizon
+  status: { type: DataTypes.STRING, allowNull: false, defaultValue: 'open' }, // open | closed
+  outcome: { type: DataTypes.FLOAT, allowNull: true },                        // 0..1 how right
+  brier: { type: DataTypes.FLOAT, allowNull: true },                          // 0..1 calibration error
+  created_at: { type: DataTypes.DATE, defaultValue: DataTypes.NOW }
+}, {
+  tableName: 'judgments',
+  timestamps: false,
+  indexes: [{ fields: ['decided_by'] }, { fields: ['status'] }, { fields: ['domain'] }]
+}) : null;
+
 /** Single-flight DB init per process — avoids sequelize.sync() on every lightweight route (e.g. /gpt-rag/status). */
 let initDbPromise = null;
 
@@ -789,6 +820,7 @@ export {
   JustificationTemplate,
   DoEDesign,
   Experiment,
+  Judgment,
   EXPERIMENT_OUTCOMES,
   STAGES_ORDER,
   sequelize,
