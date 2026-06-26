@@ -53,6 +53,31 @@ Always start a new loop at **L1** and only promote it after it earns trust.
 
 ---
 
+## Evidence level (every finding carries one)
+
+MATRIYA already separates verified / partial / unverified information (Evidence / FSCTM).
+Loops follow the same discipline: **severity says how bad it _would_ be; evidence level
+says how sure we are.** Tag every finding with both — never collapse them into one number.
+
+```
+finding:
+  severity:        critical | high | moderate | low   # impact if real
+  evidence_level:  VERIFIED | PARTIAL | UNVERIFIED      # how sure we are
+```
+
+- **VERIFIED** — confirmed by direct command output this run (CI log, `npm audit --json`, a reproduced failure).
+- **PARTIAL** — indirect or incomplete evidence (a tool flags it, but impact/exploitability wasn't checked, or only a subset was scanned).
+- **UNVERIFIED** — inferred or assumed; not reproduced (a hypothesis from a log line, a finding carried in from elsewhere).
+
+**Rule:** never raise a finding's *action priority* above its evidence level. An
+UNVERIFIED "critical" is an **investigation** task, not a fix task.
+
+For **security findings**, also classify the dependency before deciding action:
+**runtime · dev-only · transitive · known-non-exploitable**. A high-severity CVE in a
+dev-only transitive dep is usually PARTIAL relevance at most — don't `audit fix --force` it.
+
+---
+
 ## How to run a loop
 
 **Locally with Claude Code:**

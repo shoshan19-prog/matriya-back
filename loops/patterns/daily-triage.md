@@ -21,7 +21,10 @@ below and appended a row to `loop-run-log.md`. One pass per run — no iteration
    - Open issues / PRs (via GitHub MCP) — anything stale (> 7 days, no activity)?
    - `npm outdated` — dependencies drifting?
 3. Triage into: 🔴 needs action · 🟡 watch · 🟢 healthy.
-4. Write findings to `STATE.md` (Open items) and append to `loop-run-log.md`.
+4. **Tag every finding with `[evidence_level]`** (VERIFIED / PARTIAL / UNVERIFIED) — see
+   "Evidence level" in `../LOOP.md`. Severity and evidence are separate axes. For security
+   findings, also note the dep class (runtime / dev / transitive / non-exploitable).
+5. Write findings to `STATE.md` (Open items) and append to `loop-run-log.md`.
 5. If nothing new for the day, say so — silence is a valid, logged result.
 
 ## Guardrails

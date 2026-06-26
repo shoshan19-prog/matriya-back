@@ -12,9 +12,9 @@ _Last updated: 2026-06-26 (daily-triage run #1)_
 
 > Append `- [ ] <item> — discovered <date> by <loop>`; check off when resolved.
 
-- [ ] 🔴 `npm audit`: 26 vulnerabilities (1 critical, 17 high, 8 moderate) — discovered 2026-06-26 by daily-triage
-- [ ] 🟡 Major-version dep drift with security relevance: multer 1.4.5→2.2.0, pdf-parse 1.1.4→2.4.5, express 4→5, bcrypt 5→6, dotenv 16→17 — discovered 2026-06-26 by daily-triage
-- [ ] 🟢 CI workflow added this session — confirm it goes green on first run — discovered 2026-06-26 by daily-triage
+- [ ] 🔴 `[VERIFIED count / UNVERIFIED exploitability]` `npm audit`: 26 vulnerabilities (1 critical, 17 high, 8 moderate) — counts confirmed via `npm audit --json`; exploitability in our usage NOT assessed. **Action: classify each runtime/dev/transitive/non-exploitable before any fix.** discovered 2026-06-26 by daily-triage
+- [ ] 🟡 `[VERIFIED drift / UNVERIFIED impact]` Major-version dep drift: multer 1.4.5→2.2.0, pdf-parse 1.1.4→2.4.5, express 4→5, bcrypt 5→6, dotenv 16→17 — newer versions confirmed via `npm outdated`; breaking-change impact not evaluated. discovered 2026-06-26 by daily-triage
+- [x] 🟢 `[VERIFIED]` CI workflow added this session — confirmed GREEN on 18.x + 20.x (PR #1 checks) — 2026-06-26
 
 ---
 
@@ -22,7 +22,7 @@ _Last updated: 2026-06-26 (daily-triage run #1)_
 
 - **Test command:** `npm test` (runs unit/check scripts)
 - **Integration:** `npm run test:integration`
-- **Last green commit:** _(not yet confirmed — CI just added)_
+- **Last green commit:** `b6cb0d9` (CI green on Node 18 + 20, 2026-06-26)
 - **Node:** >= 18
 
 > ⚠️ Local sandbox note: `npm ci` cannot complete here because `sharp` (transitive via
