@@ -1,3 +1,15 @@
+---
+document_type: Architecture Principles
+status: Canonical
+owner: MATRIYA
+version: 1.0
+derived_from: Loop Engineering v1
+---
+
+> **Single Source of Truth.** This file (in `matriya-back/docs/`) is the one canonical
+> copy. Do not duplicate its content into other repositories or create parallel
+> versions — reference it instead, to prevent drift.
+
 # Loop Engineering — Architectural Principles
 
 > **Status: architectural reference (not implementation).**
