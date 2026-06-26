@@ -6,4 +6,4 @@
 
 | Date | Loop | Autonomy | Outcome | Findings | Actions | ~Tokens | Notes |
 |------|------|----------|---------|----------|---------|---------|-------|
-| _example_ | daily-triage | L1 | ok | 2 | report only | ~8k | template row — delete on first real run |
+| 2026-06-26 | daily-triage | L1 | ok | 3 | report only | ~12k | run #1. 26 npm-audit vulns (1 crit/17 high); major dep drift; CI added. Local `npm ci` blocked by sharp native build — CI is the real signal. |

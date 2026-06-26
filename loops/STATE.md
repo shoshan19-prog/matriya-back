@@ -4,7 +4,7 @@
 > start of a run and write it at the end. It is the difference between an agent that
 > repeats itself and one that makes progress.
 
-_Last updated: (not yet run)_
+_Last updated: 2026-06-26 (daily-triage run #1)_
 
 ---
 
@@ -12,7 +12,9 @@ _Last updated: (not yet run)_
 
 > Append `- [ ] <item> — discovered <date> by <loop>`; check off when resolved.
 
-- _none yet_
+- [ ] 🔴 `npm audit`: 26 vulnerabilities (1 critical, 17 high, 8 moderate) — discovered 2026-06-26 by daily-triage
+- [ ] 🟡 Major-version dep drift with security relevance: multer 1.4.5→2.2.0, pdf-parse 1.1.4→2.4.5, express 4→5, bcrypt 5→6, dotenv 16→17 — discovered 2026-06-26 by daily-triage
+- [ ] 🟢 CI workflow added this session — confirm it goes green on first run — discovered 2026-06-26 by daily-triage
 
 ---
 
@@ -20,8 +22,13 @@ _Last updated: (not yet run)_
 
 - **Test command:** `npm test` (runs unit/check scripts)
 - **Integration:** `npm run test:integration`
-- **Last green commit:** _(record the SHA the first time the loop sees CI/tests pass)_
+- **Last green commit:** _(not yet confirmed — CI just added)_
 - **Node:** >= 18
+
+> ⚠️ Local sandbox note: `npm ci` cannot complete here because `sharp` (transitive via
+> `@xenova/transformers`) needs a native binary download that the sandbox blocks. The
+> resulting test failures are an ENVIRONMENT artifact, not a repo defect. Trust GitHub
+> Actions CI (ubuntu-latest) for the real test signal, not local runs in this sandbox.
 
 ---
 
