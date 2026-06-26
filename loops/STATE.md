@@ -54,4 +54,5 @@ _Last updated: 2026-06-26 (daily-triage run #1)_
 
 > Free-form context the next run needs but that doesn't fit above.
 
-- _none yet_
+- **PR #1 watch ACTIVE** under `loops/MONITORING-POLICY.md` — passive/conservative. Auto-fix only for infra (CI fail / merge conflict / lockfile drift / clear infra). Never merge, change app code, refactor, expand scope, or answer design comments on the user's behalf. Non-infra review requests → document + wait for human. Log every event.
+- **Observation Layer v2 — PLANNED, BLOCKED.** Do NOT start until PR #1 is merged AND the system runs several days with no abnormal intervention. Goal: evolve the Loop mechanism from code-only monitoring into a general MATRIYA observation layer covering knowledge, documents, experiments, equipment, and projects (same control plane: STATE/run-log/budget/evidence_level).
