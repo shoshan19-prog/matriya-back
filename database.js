@@ -739,6 +739,70 @@ const Judgment = sequelize ? sequelize.define('Judgment', {
   indexes: [{ fields: ['decided_by'] }, { fields: ['status'] }, { fields: ['domain'] }]
 }) : null;
 
+/* ===========================================================================
+ * Law graph — the persistent core of knowledge evolution.
+ * A Law (relation + domain of validity) accumulates evidence; a structured
+ * Breakdown is the only license for a Gap Recommendation (one decisive
+ * experiment). K -> C -> B -> N -> L, made durable.
+ * ========================================================================= */
+const Law = sequelize ? sequelize.define('Law', {
+  id: { type: DataTypes.UUID, primaryKey: true, defaultValue: DataTypes.UUIDV4 },
+  name: { type: DataTypes.STRING, allowNull: false },
+  x_key: { type: DataTypes.STRING, allowNull: false },        // input feature
+  y_key: { type: DataTypes.STRING, allowNull: false },        // outcome
+  a: { type: DataTypes.FLOAT, allowNull: false },             // relation: y ≈ a·x + b
+  b: { type: DataTypes.FLOAT, allowNull: false },
+  tolerance: { type: DataTypes.FLOAT, allowNull: false },
+  noise_std: { type: DataTypes.FLOAT, allowNull: false },
+  features: { type: DataTypes.JSONB, allowNull: false, defaultValue: [] }, // features to test for breakdown
+  status: { type: DataTypes.STRING, allowNull: false, defaultValue: 'active' }, // active | broken | superseded
+  version: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 1 },
+  parent_law_id: { type: DataTypes.UUID, allowNull: true },   // lineage of successor laws
+  created_at: { type: DataTypes.DATE, defaultValue: DataTypes.NOW },
+  updated_at: { type: DataTypes.DATE, defaultValue: DataTypes.NOW }
+}, { tableName: 'laws', timestamps: false, indexes: [{ fields: ['status'] }, { fields: ['x_key', 'y_key'] }] }) : null;
+
+const LawDomain = sequelize ? sequelize.define('LawDomain', {
+  id: { type: DataTypes.INTEGER, primaryKey: true, autoIncrement: true },
+  law_id: { type: DataTypes.UUID, allowNull: false },
+  feature: { type: DataTypes.STRING, allowNull: false },
+  min_value: { type: DataTypes.FLOAT, allowNull: false },
+  max_value: { type: DataTypes.FLOAT, allowNull: false }
+}, { tableName: 'law_domains', timestamps: false, indexes: [{ fields: ['law_id'] }] }) : null;
+
+const LawEvidence = sequelize ? sequelize.define('LawEvidence', {
+  id: { type: DataTypes.INTEGER, primaryKey: true, autoIncrement: true },
+  law_id: { type: DataTypes.UUID, allowNull: false },
+  experiment: { type: DataTypes.JSONB, allowNull: false },    // the raw experiment record
+  kind: { type: DataTypes.STRING, allowNull: false },         // explained | contradiction | out_of_domain
+  residual: { type: DataTypes.FLOAT, allowNull: true },
+  created_at: { type: DataTypes.DATE, defaultValue: DataTypes.NOW }
+}, { tableName: 'law_evidence', timestamps: false, indexes: [{ fields: ['law_id'] }, { fields: ['kind'] }] }) : null;
+
+const BreakdownEvent = sequelize ? sequelize.define('BreakdownEvent', {
+  id: { type: DataTypes.UUID, primaryKey: true, defaultValue: DataTypes.UUIDV4 },
+  law_id: { type: DataTypes.UUID, allowNull: false },
+  feature: { type: DataTypes.STRING, allowNull: false },
+  threshold: { type: DataTypes.FLOAT, allowNull: false },
+  direction: { type: DataTypes.STRING, allowNull: true },
+  bias: { type: DataTypes.FLOAT, allowNull: true },
+  consistency: { type: DataTypes.FLOAT, allowNull: true },
+  failing_ids: { type: DataTypes.JSONB, allowNull: false, defaultValue: [] },
+  status: { type: DataTypes.STRING, allowNull: false, defaultValue: 'open' }, // open | resolved
+  resolved_by_law_id: { type: DataTypes.UUID, allowNull: true },
+  created_at: { type: DataTypes.DATE, defaultValue: DataTypes.NOW }
+}, { tableName: 'breakdown_events', timestamps: false, indexes: [{ fields: ['law_id'] }, { fields: ['status'] }] }) : null;
+
+const GapRecommendation = sequelize ? sequelize.define('GapRecommendation', {
+  id: { type: DataTypes.UUID, primaryKey: true, defaultValue: DataTypes.UUIDV4 },
+  law_id: { type: DataTypes.UUID, allowNull: false },
+  breakdown_event_id: { type: DataTypes.UUID, allowNull: true },
+  recommended_experiment: { type: DataTypes.JSONB, allowNull: false }, // the one decisive experiment
+  rationale: { type: DataTypes.TEXT, allowNull: true },
+  status: { type: DataTypes.STRING, allowNull: false, defaultValue: 'open' }, // open | run | dismissed
+  created_at: { type: DataTypes.DATE, defaultValue: DataTypes.NOW }
+}, { tableName: 'gap_recommendations', timestamps: false, indexes: [{ fields: ['law_id'] }, { fields: ['status'] }] }) : null;
+
 /** Single-flight DB init per process — avoids sequelize.sync() on every lightweight route (e.g. /gpt-rag/status). */
 let initDbPromise = null;
 
@@ -821,6 +885,11 @@ export {
   DoEDesign,
   Experiment,
   Judgment,
+  Law,
+  LawDomain,
+  LawEvidence,
+  BreakdownEvent,
+  GapRecommendation,
   EXPERIMENT_OUTCOMES,
   STAGES_ORDER,
   sequelize,
