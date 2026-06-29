@@ -31,6 +31,7 @@ import {
 import { runAfterCycle, getActiveViolation } from './integrityMonitor.js';
 import { runLoop } from './researchLoop.js';
 import logger from './logger.js';
+import { emitKnowledgeEvent } from './knowledgeEmit.js';
 import { metricsMiddleware, getMetrics } from './metrics.js';
 import { getMetricsDashboard, getSEMOutput, getGateRecords } from './observability.js';
 import {
@@ -588,6 +589,7 @@ app.post("/ingest/file", upload.single('file'), async (req, res) => {
     }
 
     if (result.success) {
+      emitKnowledgeEvent('document.ingested', displayFilename);
       // Matriya web UI calls POST /gpt-rag/sync after ingest — skip debounced server sync to avoid two
       // queued syncs (long client wait + stuck «מסנכרן»). API clients without the header still get auto-sync.
       const clientWillGptSync = String(req.get('x-matriya-client-gpt-sync') || '').trim() === '1';
@@ -1990,6 +1992,7 @@ app.delete("/documents", async (req, res) => {
   try {
     const success = await getRagService().deleteDocuments(ids);
     if (success) {
+      emitKnowledgeEvent('document.removed', `${ids.length} document(s)`, { ids });
       return res.json({
         success: true,
         message: `Deleted ${ids.length} documents`,

@@ -82,3 +82,7 @@ CHUNK_OVERLAP=100
 # MATRIYA_DAVID_ACCEPTANCE_FIXTURES=1
 # Without fixtures: Q2 needs retrieved text with at least one triple from the matrix below; Q3 needs a
 # snippet containing "Expansion Ratio = 18.5" (or expansion+ratio+18.5). Q1 is always insufficient.
+#
+# Platform control plane: emit knowledge movements (document.ingested/removed) to the
+# Knowledge Ledger so platform-wide Knowledge Growth runs on real data. No-op if unset.
+# KNOWLEDGE_LEDGER_URL=https://matriya-system.example.com
