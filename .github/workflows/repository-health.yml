@@ -1,0 +1,51 @@
+name: Repository Health (daily)
+
+# OBSERVE-ONLY daily health check.
+# Never modifies code, never opens a pull request. It measures repository
+# health across several dimensions, computes an overall score, and writes a
+# Health Report. It opens/updates a tracking issue ONLY when the repository is
+# repair-eligible (Overall Health < 80%).
+#
+# Requires repository secret: ANTHROPIC_API_KEY  (see .claude/skills/README.md)
+
+on:
+  schedule:
+    # GitHub cron is UTC. 04:17 UTC ~= 06:17/07:17 Israel time (DST aware-ish).
+    - cron: '17 4 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+concurrency:
+  group: repository-health-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  health:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Repository Health (observe only)
+        uses: anthropics/claude-code-action@v1
+        with:
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          claude_args: '--max-turns 40'
+          prompt: |
+            Run the OBSERVE-ONLY routine described in
+            .claude/skills/repository-health/SKILL.md on THIS checked-out repository.
+
+            - Measure every applicable dimension: Build, Tests, Type Safety,
+              Coverage, Security, Reliability, Dead Code, Dependency Health,
+              Documentation. Back each with evidence (command + result).
+            - Compute the Overall Health score and write the Health Report
+              (the exact box format from the skill) to the job summary file
+              referenced by $GITHUB_STEP_SUMMARY.
+            - DO NOT modify any file. DO NOT commit. DO NOT open a pull request.
+            - ONLY if Overall Health < 80%, open or update one GitHub issue
+              titled "Repository Health: repair eligible" containing the report
+              and the single recommended fix. Otherwise create no issue.
