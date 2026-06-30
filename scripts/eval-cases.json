@@ -1,0 +1,25 @@
+{
+  "_comment": "סט שאלות לבדיקת רגרסיה מול GET /search. expect: grounded = ציפייה לתשובה מעוגנת במקור (HTTP 200 + sources). insufficient = ציפייה לחוסר עדות (HTTP 422 INSUFFICIENT_EVIDENCE). ערכו/הוסיפו cases לפי המסמכים שלכם.",
+  "cases": [
+    {
+      "name": "expansion_ratio_source",
+      "query": "מאיזה מסמך נלקח Expansion Ratio = 18.5?",
+      "expect": "grounded"
+    },
+    {
+      "name": "app_per_mel_ratio",
+      "query": "מה היחס בין APP, PER, MEL?",
+      "expect": "grounded"
+    },
+    {
+      "name": "no_evidence_formulation",
+      "query": "איך לשפר את הפורמולציה הזו?",
+      "expect": "insufficient"
+    },
+    {
+      "name": "unrelated_topic_guardrail",
+      "query": "מה מזג האוויר מחר בתל אביב?",
+      "expect": "insufficient"
+    }
+  ]
+}
