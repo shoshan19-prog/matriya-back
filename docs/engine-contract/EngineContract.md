@@ -220,8 +220,15 @@ extremes. All three validate against the *same, unchanged* schema:
 | Engine | purity | reasoning | writes | file |
 |--------|--------|-----------|--------|------|
 | **Search** (1) | pure | retrieval | none | `SearchEngine.contract.json` |
-| **Knowledge Event** | stateful | causal | hypothesis | `KnowledgeEventEngine.contract.json` |
+| **Knowledge Event** | stateful | evidential | hypothesis | `KnowledgeEventEngine.contract.json` |
 | **Combination Discovery** (16) | pure | generative | none | `CombinationDiscoveryEngine.contract.json` |
+| **Recommendation** (3) | pure | optimization* | none (decision-support) | `RecommendationEngine.contract.json` |
+
+\* Recommendation was demanded by the Capability Planner (a `recommend ≥3` gap in
+a real task), not proposed. It fits frozen v1.0 and enforces *Recommendation ≠
+Decision* in its payload, but surfaced **RG3**: the safety envelope has no
+manifest-level `decision` boundary. See `RecommendationEngine-mapping.md` — the
+first safety-relevant candidate for a post-freeze revision.
 
 Each has a `*-mapping.md` with its Evidence/IO mapping, gap list and verdict.
 

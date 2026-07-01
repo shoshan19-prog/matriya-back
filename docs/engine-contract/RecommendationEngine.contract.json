@@ -1,0 +1,205 @@
+{
+  "apiVersion": "engine-contract/v1.0",
+  "name": "recommendation",
+  "displayName": "Recommendation Engine (Engine 3)",
+  "version": "0.1.0-draft",
+  "purpose": "Rank candidate options against weighted goals and hard constraints, evidence-weighted, with why-not for the alternatives — decision SUPPORT, never a decision.",
+  "category": "recommendation",
+  "stateless": true,
+  "deterministic": true,
+  "purity": "pure",
+  "sideEffects": "read",
+  "changes": [],
+  "retrySafe": true,
+  "idempotencyKey": null,
+  "outputEpistemics": {
+    "outputClass": "hypothesis",
+    "emitsUnvalidated": true,
+    "guarantees": ["provenance", "assumptions", "uncertainty", "confidence_type"],
+    "neverAssertsAs": ["fact", "knowledge", "validated_knowledge"],
+    "validationGating": "human_gated"
+  },
+  "transformation": {
+    "statement": "Candidate Options + Decision Criteria (+ Context, + KB evidence) -> ranked recommendations with why-not; decision-support, never a decision",
+    "from": ["ikl.OptionSet@1", "ikl.DecisionCriteria@1"],
+    "to": ["ikl.RecommendationSet@1"],
+    "operation": "rank_options_evidence_weighted"
+  },
+  "consumes": [
+    {
+      "name": "options",
+      "type": "ikl.OptionSet@1",
+      "cardinality": "one",
+      "required": true,
+      "description": "The candidate options to rank (>=2). Composable: a Search result set or a Combination-Discovery candidate set adapts to this.",
+      "schema": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["options"],
+        "properties": {
+          "options": {
+            "type": "array",
+            "minItems": 2,
+            "description": "Cannot recommend without alternatives to compare — a single option is not a recommendation.",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["ref"],
+              "properties": {
+                "ref": { "type": "string", "description": "Handle of the option (product/material/approach) in the knowledge graph." },
+                "label": { "type": "string" },
+                "domain": { "enum": ["external", "internal"] }
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "name": "criteria",
+      "type": "ikl.DecisionCriteria@1",
+      "cardinality": "one",
+      "required": true,
+      "description": "Weighted goals (the Value Field) + hard constraints. Ranking is meaningless without objectives.",
+      "schema": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["weights"],
+        "properties": {
+          "weights": {
+            "type": "object",
+            "description": "Goal -> weight (0..1), e.g. { fire: 0.5, cost: 0.3, voc: 0.2 }.",
+            "additionalProperties": { "type": "number", "minimum": 0, "maximum": 1 }
+          },
+          "hardConstraints": { "type": "array", "items": { "type": "string" }, "description": "Non-negotiable limits (e.g. 'fire_class>=A2', 'cost<=X')." }
+        }
+      }
+    },
+    {
+      "name": "context",
+      "type": "ikl.DecisionContext@1",
+      "cardinality": "one",
+      "required": false,
+      "description": "Optional project/geo/application context that conditions the ranking.",
+      "schema": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "application": { "type": "string" },
+          "geoContext": { "type": "string" }
+        }
+      }
+    }
+  ],
+  "produces": [
+    {
+      "name": "recommendations",
+      "type": "ikl.RecommendationSet@1",
+      "cardinality": "one",
+      "description": "Ranked options with rationale. Safety is enforced structurally: every recommendation REQUIRES trade-offs, why-not vs. alternatives, missing evidence, confidence, assumptions, and a decisionStatus locked to 'decision_support'. The engine returns a ranking; the human decides.",
+      "schema": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["ranked", "alternativesConsidered"],
+        "properties": {
+          "alternativesConsidered": {
+            "type": "array",
+            "minItems": 2,
+            "description": "Every option scored — so why-not is always visible, not just the winner.",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["ref", "score"],
+              "properties": {
+                "ref": { "type": "string" },
+                "score": { "type": "number" }
+              }
+            }
+          },
+          "ranked": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["optionRef", "rank", "rationale", "confidence", "confidenceType", "decisionStatus", "tradeOffs", "whyNotAlternatives", "missingEvidence", "assumptions", "provenance"],
+              "properties": {
+                "optionRef": { "type": "string" },
+                "rank": { "type": "integer", "minimum": 1 },
+                "rationale": { "type": "string", "description": "Why this ranks where it does, in terms of the weighted goals." },
+                "confidence": { "type": "number", "minimum": 0, "maximum": 1 },
+                "confidenceType": { "const": "independent_evidence", "description": "Evidence-weighted; constraint-satisfaction is shown in the ranking breakdown, not folded into the number. See gap RG2." },
+                "decisionStatus": { "const": "decision_support", "description": "HARD-LOCKED. A recommendation is never a decision (see gap RG3 — the manifest enum lacks a 'decision' token, so it is enforced here in the payload)." },
+                "tradeOffs": { "type": "array", "minItems": 1, "description": "What you give up for this choice (e.g. '+fire, -workability, +cost')." },
+                "whyNotAlternatives": { "type": "array", "minItems": 1, "description": "Why the other options rank lower — every recommendation exposes its rejected alternatives." },
+                "missingEvidence": { "type": "array", "description": "Evidence that would raise/lower confidence but is absent (feeds Knowledge Gap / Experiment Planner)." },
+                "assumptions": { "type": "array", "minItems": 1 },
+                "provenance": { "type": "array", "minItems": 1, "description": "The KB evidence behind the ranking." },
+                "constraintFit": { "type": "object", "description": "Per hard-constraint pass/fail." }
+              }
+            }
+          }
+        }
+      }
+    }
+  ],
+  "reasoning": {
+    "class": "optimization",
+    "confidenceType": "independent_evidence",
+    "emitsTrace": true,
+    "evidenceModel": "each option scored by evidence weight per goal, combined under the criteria weights; constraint-aware (hard constraints gate, soft goals rank).",
+    "notes": "PROXIES: reasoning.class 'optimization' stands in for a 'recommendation'/'deliberative' class the frozen v1.0 enum lacks (gap RG1); confidenceType 'independent_evidence' stands in for an 'evidence_weighted'/'multi_criteria' type (gap RG2). Both are honest fits, not distortions. Uncertainty is never hidden — ties are reported, not broken."
+  },
+  "confidence": {
+    "emits": true,
+    "scale": "0..1",
+    "granularity": "item",
+    "method": "evidence_weighted_multi_criteria",
+    "calibrated": false,
+    "notes": "Per-recommendation confidence reflects how well evidence supports that option's ranking under the given goals. Low evidence -> low confidence + missingEvidence populated, never a confident guess."
+  },
+  "capabilities": {
+    "observe": 3,
+    "explain": 4,
+    "predict": 2,
+    "recommend": 5,
+    "generate": 1,
+    "validate": 3,
+    "learn": 1
+  },
+  "cost": {
+    "model": "relative",
+    "unit": "compute-units",
+    "estimate": null,
+    "notes": "Scores N options against the KB evidence per goal. Linear in options x goals."
+  },
+  "latency": {
+    "unit": "ms",
+    "p50": null,
+    "p95": null,
+    "max": null,
+    "notes": "Unmeasured; dominated by per-option evidence lookups."
+  },
+  "dependencies": [
+    { "name": "IKL performance + failure library", "kind": "datastore", "required": true, "notes": "Evidence per option (measured vs claimed, known failures)." },
+    { "name": "IKL provenance (ikl_sources)", "kind": "datastore", "required": true },
+    { "name": "confidence-rubric (source-tier weights)", "kind": "config", "required": true },
+    { "name": "IKL regulatory + value-engineering", "kind": "datastore", "required": false, "notes": "For constraint checks and cost goals." }
+  ],
+  "failureModes": [
+    { "code": "E_NO_OPTIONS", "condition": "fewer than 2 candidate options", "result": "rejected — a recommendation needs alternatives", "severity": "error", "recoverable": true },
+    { "code": "E_NO_CRITERIA", "condition": "no goals/weights supplied", "result": "rejected — cannot rank without objectives (will not invent goals)", "severity": "error", "recoverable": true },
+    { "code": "E_CONSTRAINT_INFEASIBLE", "condition": "all options fail a hard constraint", "result": "empty ranked set + explanation (not an error)", "severity": "empty", "recoverable": true },
+    { "code": "E_INSUFFICIENT_EVIDENCE", "condition": "options lack evidence to rank confidently", "result": "low-confidence recommendations with missingEvidence populated — uncertainty exposed, never hidden", "severity": "degraded", "recoverable": true },
+    { "code": "E_TIE_UNRESOLVED", "condition": "top options tie within the confidence interval", "result": "returns the tied set flagged — does NOT break the tie arbitrarily (never auto-decide)", "severity": "degraded", "recoverable": true },
+    { "code": "E_KB_UNAVAILABLE", "condition": "evidence store unreachable", "result": "failed", "severity": "error", "recoverable": false }
+  ],
+  "provenance": {
+    "carriesProvenance": true,
+    "notes": "Every ranking cites the evidence behind it; a recommendation without provenance is structurally impossible (required in produces schema)."
+  },
+  "domainSeparation": {
+    "reads": ["external", "internal"],
+    "writes": ["none"]
+  }
+}

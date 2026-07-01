@@ -90,10 +90,16 @@ Running the two tasks against the frozen capability vectors of `ikl-search`,
 | | explain(3) | explain 3 via knowledge-event | covered |
 | | **→ fully satisfiable by the existing 3 engines** | | ✅ |
 | Water absorption | observe(4) | observe 5 via ikl-search | covered |
-| | diagnose(3) | observe 5 + explain 3 + predict 3 | covered |
-| | **recommend(3)** | best available `recommend` = 2 | **GAP** |
-| | explain(3) | explain 3 via knowledge-event | covered |
-| | **→ 1 capability gap: `recommend`** | | ⚠ |
+| | diagnose(3) | observe 5 + explain 4 + predict 3 | covered |
+| | recommend(3) | recommend 5 via **recommendation (Engine 3)** | covered |
+| | explain(3) | explain 4 via recommendation | covered |
+| | **→ fully satisfiable** (gap closed by Engine 3) | | ✅ |
+
+> **Gap → closed.** The `recommend` gap this table originally surfaced was closed
+> by contracting the **Recommendation Engine (Engine 3)** — a capability the
+> planner *demanded*, not an engine someone wanted to build. See
+> [`../engine-contract/RecommendationEngine-mapping.md`](../engine-contract/RecommendationEngine-mapping.md).
+> This is the loop working: task → capability need → gap → new engine → re-plan → satisfiable.
 
 Two things this proves:
 1. **The Composer can plan by capability alone.** Both tasks resolve to concrete
