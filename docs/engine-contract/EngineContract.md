@@ -1,4 +1,14 @@
-# MATRIYA Engine Contract — DRAFT v0.2
+# MATRIYA Engine Contract — DRAFT v0.3
+
+> **Governing rule (v0.3).** *The contract does not weaken to fit an engine.* If an
+> engine cannot be represented without relaxing a safety boundary, that is a
+> **contract failure to report — not an engine to force in.** In particular:
+> **a generated candidate = a hypothesis awaiting validation — never knowledge,
+> never a recommendation.** v0.3 encodes this as schema rules, so a manifest that
+> tries to present invented output as fact *fails validation* (verified by a
+> negative test against all three tamperings).
+
+
 
 **Status:** documentation-only draft. **No runtime code, no `runSearch()`, no
 Composer, no orchestration, no refactor of existing Search.** This defines *what
@@ -53,12 +63,14 @@ Formal schema: [`engine-contract.schema.json`](./engine-contract.schema.json)
 
 | Field | Meaning |
 |-------|---------|
-| `apiVersion` | Pins the manifest to a contract revision (`engine-contract/v0.2`). |
+| `apiVersion` | Pins the manifest to a contract revision (`engine-contract/v0.3`). |
 | `name`, `version`, `purpose`, `category` | Identity. |
 | `stateless` | MUST be `true`. |
 | `purity` | `pure` / `stateful` — see State Changes below. |
 | `sideEffects` | `none` / `read` / `write`. |
 | `changes[]` | Shared state the engine mutates (empty = pure). |
+| `retrySafe`, `idempotencyKey` | v0.3 (F2). Retry safety; stateful+retrySafe requires a dedup key. |
+| `outputEpistemics` | v0.3 (F3). Hypothesis safety envelope — `outputClass`, `neverAssertsAs`, `validationGating`. |
 | `transformation` | The Input→Output transformation the engine *is*. |
 | `consumes[]`, `produces[]` | Typed ports (`type`, `cardinality`, `schema`/`schemaRef`, `required`). |
 | `reasoning` | Reasoning Signature — what the confidence *means*. |
@@ -201,26 +213,41 @@ Key results:
   candidate_hypothesis`) is enforced in its `produces` schema — the type system
   doing safety.
 
-## v0.3 refinement backlog (recorded, not applied)
+## v0.3 changes (applied)
 
-No schema migration this round. The three test cases surfaced six additive
-refinements — the intended one-time set for **Engine Contract v1.0**:
+The three stress tests were folded into the schema in one deliberate revision.
+All three instances re-validate against v0.3.
 
-- **F1** — add `evidential`/`inductive` to `reasoning.class` (evidence
-  qualification is mapped to `causal` as a proxy).
-- **F2** — add a retry/idempotency declaration (`retrySafe` / `idempotencyKey`)
-  so a retried stateful engine won't duplicate its effect.
-- **F3** — make explicit that a produced artifact and a state change may be the
-  same logical thing (the event returned == the event appended).
-- **F4** — add a generative `confidenceType` (`mechanism_plausibility` /
-  `predictive_estimate`) so a plausibility prior is never read as a probability.
-- **F5** — add a top-level `outputEpistemics` block so a Composer can tell an
-  engine emits unvalidated hypotheses (with assumptions + required validation)
-  *without* parsing its payload schema.
-- **F6** — add generation-bounds + reproducibility (max candidates, search
-  strategy, seed) for generative/search engines that are `deterministic: false`.
+- **F1 — applied.** `reasoning.class` gains `evidential` and `inductive`. Knowledge
+  Event now declares `evidential` (was the `causal` proxy).
+- **F2 — applied.** New `retrySafe` (required) + `idempotencyKey`. A **schema rule**
+  enforces: `purity: stateful` + `retrySafe: true` ⇒ `idempotencyKey` required.
+  Knowledge Event declares `hash(claim + sorted(sourceIds) + evidenceType)`.
+- **F3 — applied (the hypothesis safety envelope).** New top-level
+  `outputEpistemics` (`outputClass`, `emitsUnvalidated`, `guarantees`,
+  `neverAssertsAs`, `validationGating`), plus `mechanism_plausibility` /
+  `predictive_estimate` `confidenceType`s (subsumes the old F4/F5). Three schema
+  rules make the safety boundary structural:
+  1. `reasoning.class: generative` ⇒ `outputClass: hypothesis` **and**
+     `neverAssertsAs` ⊇ {`fact`, `recommendation`}.
+  2. `outputClass: hypothesis` ⇒ `emitsUnvalidated: true`, `validationGating:
+     human_gated`, and `guarantees` ⊇ {`provenance`}.
+  3. (F2 rule above.)
 
-**Recommendation:** the contract has now been exercised across all three
-reasoning modes. Freeze v0.2 and cut **v1.0** folding in F1–F6 as one deliberate
-revision, rather than versioning piecemeal — then, on approval, the first
-implementation (G7 pure-function extraction). Nothing is implemented yet.
+**Verified:** a negative test tampered the generative manifest three ways —
+declaring candidates `asserted`, dropping the fact/recommendation guard, and
+self-validating — and **all three were rejected**. The contract reports the
+failure; it does not absorb it.
+
+### Still open (deferred, minor — for a future revision)
+
+- **F3-orig** — mark when a produced artifact *is* the appended artifact (event
+  returned == event appended). Cosmetic; no safety impact.
+- **F6** — generation-bounds are captured in the generative *payload*
+  (`generationBounds`), but a reproducibility **seed** for `deterministic: false`
+  engines is not yet a manifest field.
+
+**Status:** the contract has now been exercised across retrieval / evidential /
+generative and hardened for safety. This is the natural point to promote v0.3 →
+**v1.0** once the two deferred items are decided. Implementation stays deferred —
+nothing is built; no `runSearch()`.

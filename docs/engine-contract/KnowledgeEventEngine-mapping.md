@@ -9,6 +9,12 @@ a Composer built on it — would break.
 **Docs only. No runtime code, no Composer, no endpoints, no schema migration.**
 The engine *declares* its state change; it does not implement it.
 
+> **Updated for contract v0.3.** This stress test drove F1 (reasoning class) and
+> F2 (retry/idempotency), both now **applied**. The instance declares
+> `reasoning.class: evidential` (not the old `causal` proxy) and
+> `retrySafe: true` with `idempotencyKey: hash(claim + sorted(sourceIds) +
+> evidenceType)`. See `EngineContract.md` → "v0.3 changes".
+
 Instance: [`KnowledgeEventEngine.contract.json`](./KnowledgeEventEngine.contract.json)
 (validated against `engine-contract.schema.json`).
 

@@ -1,5 +1,5 @@
 {
-  "apiVersion": "engine-contract/v0.2",
+  "apiVersion": "engine-contract/v0.3",
   "name": "combination-discovery",
   "displayName": "Combination Discovery / Virtual Formulation Engine (Engine 16)",
   "version": "0.1.0-draft",
@@ -10,6 +10,15 @@
   "purity": "pure",
   "sideEffects": "read",
   "changes": [],
+  "retrySafe": true,
+  "idempotencyKey": null,
+  "outputEpistemics": {
+    "outputClass": "hypothesis",
+    "emitsUnvalidated": true,
+    "guarantees": ["provenance", "assumptions", "validation_requirements", "uncertainty", "non_exhaustiveness", "confidence_type"],
+    "neverAssertsAs": ["fact", "knowledge", "recommendation", "validated_knowledge"],
+    "validationGating": "human_gated"
+  },
   "transformation": {
     "statement": "Requirements + Constraints (+ Knowledge Base) -> ranked candidate formulations, all unvalidated hypotheses",
     "from": ["ikl.FormulationRequirements@1", "ikl.FormulationConstraints@1"],
@@ -132,7 +141,7 @@
                 },
                 "novelty": { "type": "number", "minimum": 0, "maximum": 1 },
                 "confidence": { "type": "number", "minimum": 0, "maximum": 1 },
-                "confidenceType": { "const": "model_probability", "description": "PROXY — this is a mechanism-plausibility prior, not a validated probability. See finding F4." },
+                "confidenceType": { "const": "mechanism_plausibility", "description": "A mechanism-plausibility prior, not a validated probability (v0.3, F4 resolved)." },
                 "epistemicStatus": { "const": "candidate_hypothesis", "description": "Hard-locked: a generated candidate is NEVER a fact." },
                 "assumptions": {
                   "type": "array",
@@ -159,10 +168,10 @@
   ],
   "reasoning": {
     "class": "generative",
-    "confidenceType": "model_probability",
+    "confidenceType": "mechanism_plausibility",
     "emitsTrace": true,
     "evidenceModel": "mechanism-constrained plausibility: candidates are pruned/scored by compatibility + mechanism support, NOT by experiment. No candidate is tested.",
-    "notes": "Confidence here is an UNVALIDATED plausibility prior — fundamentally weaker than KEE's independent_evidence or a lab result. 'model_probability' is a proxy; a generative confidenceType is a v0.3 need (finding F4). Uncertainty is exposed per predicted property, never hidden."
+    "notes": "Confidence here is an UNVALIDATED plausibility prior — fundamentally weaker than KEE's independent_evidence or a lab result. v0.3: confidenceType is now 'mechanism_plausibility' (F4 resolved) — no longer the 'model_probability' proxy. Uncertainty is exposed per predicted property, never hidden."
   },
   "confidence": {
     "emits": true,

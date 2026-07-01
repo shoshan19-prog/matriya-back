@@ -1,5 +1,5 @@
 {
-  "apiVersion": "engine-contract/v0.2",
+  "apiVersion": "engine-contract/v0.3",
   "name": "knowledge-event",
   "displayName": "Knowledge Event Engine (Continuous Learning Loop)",
   "version": "0.1.0-draft",
@@ -16,6 +16,15 @@
       "domain": "hypothesis"
     }
   ],
+  "retrySafe": true,
+  "idempotencyKey": "hash(claim + sorted(sourceIds) + evidenceType)",
+  "outputEpistemics": {
+    "outputClass": "hypothesis",
+    "emitsUnvalidated": true,
+    "guarantees": ["provenance", "confidence_type"],
+    "neverAssertsAs": ["validated_knowledge"],
+    "validationGating": "human_gated"
+  },
   "transformation": {
     "statement": "Evidence -> qualified Knowledge Event (returned AND appended to the ledger as unvalidated)",
     "from": ["ikl.Evidence@1"],
@@ -105,11 +114,11 @@
     }
   ],
   "reasoning": {
-    "class": "causal",
+    "class": "evidential",
     "confidenceType": "independent_evidence",
     "emitsTrace": true,
     "evidenceModel": "independent sources counted and weighted by source tier (Confidence Engine rubric: internal-validated 0.95 ... hypothesis 0.20)",
-    "notes": "Confidence is provenance-based: derived from how many INDEPENDENT evidences support the claim and each source's tier. This is the exact contrast with ikl-search, whose identical 0.81 would mean mere semantic proximity. NOTE: 'class: causal' is a proxy — the engine's reasoning is really evidential qualification; see finding F1 (contract v0.3 candidate)."
+    "notes": "Confidence is provenance-based: derived from how many INDEPENDENT evidences support the claim and each source's tier. This is the exact contrast with ikl-search, whose identical 0.81 would mean mere semantic proximity. v0.3: reasoning.class is now 'evidential' (F1 resolved) — previously mapped to 'causal' as a proxy."
   },
   "confidence": {
     "emits": true,

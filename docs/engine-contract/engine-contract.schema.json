@@ -1,8 +1,8 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://matriya.example/schemas/engine-contract/v0.2.json",
+  "$id": "https://matriya.example/schemas/engine-contract/v0.3.json",
   "title": "MATRIYA Engine Contract",
-  "description": "Manifest that every Industrial Intelligence Platform engine MUST publish. It is a self-describing declaration — NOT runtime code and NOT an orchestrator. An engine that validates against this schema can be composed as a plug-and-play module. DRAFT v0.2 — adds the 'quality of thinking' dimensions (reasoning signature, state changes, capability vector, transformation) on top of v0.1's I/O. Documentation only; no runtime behaviour is implied or changed by this file.",
+  "description": "Manifest that every Industrial Intelligence Platform engine MUST publish. It is a self-describing declaration — NOT runtime code and NOT an orchestrator. An engine that validates against this schema can be composed as a plug-and-play module. DRAFT v0.3 — folds in the three refinements found by stress-testing retrieval/causal/generative engines: F1 evidential+inductive reasoning classes; F2 retrySafe/idempotencyKey for stateful engines; F3 a hypothesis safety envelope (outputEpistemics) that STRUCTURALLY forbids presenting generated/unvalidated output as fact. GOVERNING RULE: the contract does not weaken to fit an engine — if an engine cannot be represented without relaxing these safety boundaries, that is a contract failure to REPORT, not an engine to force in. Documentation only; no runtime behaviour is implied or changed.",
   "type": "object",
   "additionalProperties": false,
   "required": [
@@ -14,12 +14,14 @@
     "purity",
     "sideEffects",
     "changes",
+    "retrySafe",
     "transformation",
     "consumes",
     "produces",
     "reasoning",
     "confidence",
     "capabilities",
+    "outputEpistemics",
     "cost",
     "latency",
     "dependencies",
@@ -28,7 +30,7 @@
   "properties": {
     "apiVersion": {
       "description": "Contract format version. Pins the manifest to a schema revision.",
-      "const": "engine-contract/v0.2"
+      "const": "engine-contract/v0.3"
     },
     "name": {
       "description": "Stable, unique engine id (kebab-case, dot-namespaced allowed).",
@@ -72,6 +74,14 @@
       "type": "array",
       "items": { "$ref": "#/$defs/change" }
     },
+    "retrySafe": {
+      "description": "v0.3 F2. Whether the Composer may safely retry this engine after a failure/timeout without harmful duplication. Pure engines are trivially retry-safe. A STATEFUL engine claiming retrySafe:true MUST declare `idempotencyKey` (schema rule below) — otherwise a retried append would duplicate its effect.",
+      "type": "boolean"
+    },
+    "idempotencyKey": {
+      "description": "v0.3 F2. How repeated calls with the same input are de-duplicated so a retry does not double-apply the effect (e.g. 'hash(claim + sorted sourceIds)'). Required when purity=stateful and retrySafe=true.",
+      "type": ["string", "null"]
+    },
     "transformation": {
       "description": "An engine is defined by what it TRANSFORMS, not by what it is. Declares Input -> Transformation -> Output so the platform is a set of transformations, not a bag of services.",
       "type": "object",
@@ -91,12 +101,12 @@
       "required": ["class", "confidenceType", "emitsTrace"],
       "properties": {
         "class": {
-          "description": "The kind of reasoning the engine performs.",
-          "enum": ["retrieval", "causal", "experimental", "statistical", "analogical", "rule_based", "generative", "optimization", "simulation"]
+          "description": "The kind of reasoning the engine performs. (v0.3 F1: added 'evidential' and 'inductive' — evidence qualification is neither retrieval nor pure causation.)",
+          "enum": ["retrieval", "causal", "evidential", "inductive", "experimental", "statistical", "analogical", "rule_based", "generative", "optimization", "simulation"]
         },
         "confidenceType": {
-          "description": "What the confidence number is derived from — its meaning, not its magnitude.",
-          "enum": ["semantic_similarity", "source_tier", "independent_evidence", "model_probability", "statistical_significance", "experimental_replication", "expert_judgment"]
+          "description": "What the confidence number is derived from — its meaning, not its magnitude. (v0.3 F4: added 'mechanism_plausibility' and 'predictive_estimate' so a generative prior is never read as a measured probability.)",
+          "enum": ["semantic_similarity", "source_tier", "independent_evidence", "model_probability", "mechanism_plausibility", "predictive_estimate", "statistical_significance", "experimental_replication", "expert_judgment"]
         },
         "emitsTrace": {
           "description": "Whether the engine can emit a reasoning_trace at runtime (in the result envelope).",
@@ -122,6 +132,33 @@
         "generate": { "$ref": "#/$defs/rating" },
         "validate": { "$ref": "#/$defs/rating" },
         "learn": { "$ref": "#/$defs/rating" }
+      }
+    },
+    "outputEpistemics": {
+      "description": "v0.3 F3 — the hypothesis safety envelope. Declares the epistemic status of outputs so a Composer knows, WITHOUT parsing payload schemas, whether an engine emits facts or unvalidated hypotheses. Invariant (enforced by schema rules below): a generative engine's outputs are ALWAYS 'hypothesis'; a 'hypothesis' output is ALWAYS human-gated and unvalidated and carries safety guarantees. Generated candidate = hypothesis awaiting validation — never knowledge, never recommendation.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["outputClass", "emitsUnvalidated", "validationGating"],
+      "properties": {
+        "outputClass": {
+          "description": "'asserted' = returns knowledge as already stored, with its own provenance/status (retrieval); 'hypothesis' = produces NEW unvalidated claims (generation, evidence qualification); 'mixed'.",
+          "enum": ["asserted", "hypothesis", "mixed"]
+        },
+        "emitsUnvalidated": { "type": "boolean" },
+        "guarantees": {
+          "description": "Per-output safety fields the engine guarantees to attach. MUST be non-empty and include 'provenance' when outputClass=hypothesis.",
+          "type": "array",
+          "items": { "enum": ["provenance", "assumptions", "validation_requirements", "uncertainty", "non_exhaustiveness", "confidence_type"] }
+        },
+        "neverAssertsAs": {
+          "description": "What the output must NEVER be presented as. Generative engines must include 'fact' and 'recommendation'.",
+          "type": "array",
+          "items": { "enum": ["fact", "knowledge", "recommendation", "validated_knowledge"] }
+        },
+        "validationGating": {
+          "description": "How outputs become validated. Hypotheses MUST be 'human_gated' (Principle 4).",
+          "enum": ["none", "human_gated", "engine"]
+        }
       }
     },
     "consumes": {
@@ -232,6 +269,63 @@
       }
     }
   },
+  "allOf": [
+    {
+      "$comment": "v0.3 F2 — a stateful engine that claims retry-safety MUST declare how it de-duplicates (idempotencyKey). Otherwise a retried effect would double-apply.",
+      "if": {
+        "properties": { "purity": { "const": "stateful" }, "retrySafe": { "const": true } },
+        "required": ["purity", "retrySafe"]
+      },
+      "then": {
+        "required": ["idempotencyKey"],
+        "properties": { "idempotencyKey": { "type": "string", "minLength": 1 } }
+      }
+    },
+    {
+      "$comment": "v0.3 F3 — a GENERATIVE engine's outputs are ALWAYS hypotheses. A generative manifest that declares outputClass 'asserted'/'mixed' FAILS validation. This is the structural form of the rule: the contract does not weaken to present invented candidates as fact; it reports the failure.",
+      "if": {
+        "properties": { "reasoning": { "properties": { "class": { "const": "generative" } }, "required": ["class"] } },
+        "required": ["reasoning"]
+      },
+      "then": {
+        "properties": {
+          "outputEpistemics": {
+            "properties": {
+              "outputClass": { "const": "hypothesis" },
+              "neverAssertsAs": {
+                "type": "array",
+                "allOf": [
+                  { "contains": { "const": "fact" } },
+                  { "contains": { "const": "recommendation" } }
+                ]
+              }
+            },
+            "required": ["outputClass", "neverAssertsAs"]
+          }
+        },
+        "required": ["outputEpistemics"]
+      }
+    },
+    {
+      "$comment": "v0.3 F3 — any 'hypothesis' output is unvalidated, human-gated, and carries safety guarantees including provenance.",
+      "if": {
+        "properties": { "outputEpistemics": { "properties": { "outputClass": { "const": "hypothesis" } }, "required": ["outputClass"] } },
+        "required": ["outputEpistemics"]
+      },
+      "then": {
+        "properties": {
+          "outputEpistemics": {
+            "properties": {
+              "emitsUnvalidated": { "const": true },
+              "validationGating": { "const": "human_gated" },
+              "guarantees": { "type": "array", "minItems": 1, "contains": { "const": "provenance" } }
+            },
+            "required": ["emitsUnvalidated", "validationGating", "guarantees"]
+          }
+        }
+      }
+    }
+  ],
   "$defs": {
     "rating": {
       "description": "Capability strength, 0 (none) .. 5 (defining strength).",

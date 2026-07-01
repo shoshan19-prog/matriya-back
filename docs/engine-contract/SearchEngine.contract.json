@@ -1,5 +1,5 @@
 {
-  "apiVersion": "engine-contract/v0.2",
+  "apiVersion": "engine-contract/v0.3",
   "name": "ikl-search",
   "displayName": "Industrial Search (Engine 1)",
   "version": "0.1.0",
@@ -10,6 +10,14 @@
   "purity": "pure",
   "sideEffects": "read",
   "changes": [],
+  "retrySafe": true,
+  "idempotencyKey": null,
+  "outputEpistemics": {
+    "outputClass": "asserted",
+    "emitsUnvalidated": false,
+    "guarantees": ["provenance"],
+    "validationGating": "none"
+  },
   "transformation": {
     "statement": "SearchQuery -> ranked[IKL Record] by semantic proximity",
     "from": ["ikl.SearchQuery@1"],

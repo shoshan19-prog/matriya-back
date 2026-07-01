@@ -12,6 +12,14 @@ Instance:
 [`CombinationDiscoveryEngine.contract.json`](./CombinationDiscoveryEngine.contract.json)
 (validated against `engine-contract.schema.json`).
 
+> **Updated for contract v0.3.** This stress test drove F3 — the hypothesis
+> safety envelope — now **applied**. The instance declares `confidenceType:
+> mechanism_plausibility` (not the old `model_probability` proxy) and an
+> `outputEpistemics` block; schema rules now force any generative engine's
+> outputs to be `hypothesis` / human-gated and forbid `fact`+`recommendation`
+> assertion. A negative test confirms tampered manifests are rejected. See
+> `EngineContract.md` → "v0.3 changes".
+
 ## 1. The three engines side by side
 
 | dimension | ikl-search | knowledge-event | combination-discovery |
