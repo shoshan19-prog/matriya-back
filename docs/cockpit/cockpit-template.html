@@ -9,9 +9,13 @@
           --green:#2ec16b; --amber:#f4b740; --grey:#6b7a92; --red:#e2565b; --accent:#4aa8ff; }
   * { box-sizing:border-box; }
   body { margin:0; background:var(--bg); color:var(--ink); font-family:system-ui,-apple-system,"Segoe UI",Arial,sans-serif; }
-  header { padding:14px 20px; border-bottom:1px solid var(--line); display:flex; align-items:center; gap:16px; }
+  header { padding:14px 20px; border-bottom:1px solid var(--line); display:flex; align-items:center; justify-content:space-between; gap:16px; flex-wrap:wrap; }
   header h1 { font-size:16px; margin:0; letter-spacing:.5px; }
   header .flag { color:var(--dim); font-size:12px; }
+  .status { display:flex; gap:8px; flex-wrap:wrap; }
+  .sbadge { font-size:11px; padding:3px 9px; border:1px solid var(--line); border-radius:6px; color:var(--dim); white-space:nowrap; }
+  .sbadge.warn { border-color:var(--amber); color:#ffe3a3; }
+  .sbadge.off { border-color:var(--grey); }
   nav { display:flex; gap:6px; padding:10px 16px; border-bottom:1px solid var(--line); flex-wrap:wrap; }
   nav button { background:var(--panel); color:var(--ink); border:1px solid var(--line); border-radius:8px;
                padding:8px 14px; cursor:pointer; font-size:14px; }
@@ -58,8 +62,14 @@
 </head>
 <body>
 <header>
-  <h1>MATRIYA · COCKPIT</h1>
-  <span class="flag" id="flag"></span>
+  <div><h1>MATRIYA · COCKPIT</h1> <span class="flag" id="flag"></span></div>
+  <div class="status">
+    <span class="sbadge warn">Standalone Evaluation Tool</span>
+    <span class="sbadge">Version P0.1</span>
+    <span class="sbadge" id="sbDataset">Dataset: APP Illustrative</span>
+    <span class="sbadge off">Promotion: OFF</span>
+    <span class="sbadge warn">Decision Support Only</span>
+  </div>
 </header>
 <nav>
   <button data-view="cockpit" class="active">🛩️ Cockpit — עכשיו</button>
@@ -254,7 +264,8 @@ function initReactive(){
 }
 
 const views={cockpit,timeline,graph,phases:phasediagram,energy,transfer,reactive};
-function render(v){ if(reactiveTimer){clearInterval(reactiveTimer);reactiveTimer=null;} main.innerHTML=views[v](); document.querySelectorAll('nav button').forEach(b=>b.classList.toggle('active',b.dataset.view===v)); }
+function render(v){ if(reactiveTimer){clearInterval(reactiveTimer);reactiveTimer=null;} main.innerHTML=views[v](); document.querySelectorAll('nav button').forEach(b=>b.classList.toggle('active',b.dataset.view===v));
+  const sb=document.getElementById('sbDataset'); const list=S.datasets||[]; if(sb&&list[currentIdx]) sb.textContent='Dataset: '+esc(list[currentIdx].project.split(' — ')[0]); }
 document.querySelectorAll('nav button').forEach(b=>b.addEventListener('click',()=>render(b.dataset.view)));
 render('cockpit');
 </script>
