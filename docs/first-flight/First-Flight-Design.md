@@ -100,9 +100,32 @@ behaviour drift as the MBM evolves.
 (Hypothesis generation for *modelled* non-APP systems is independently covered by
 `test:mbm-altpaths`, which ranks paths across epoxy/silane/concrete/steel.)
 
+## P0.1 — Gated First Flight (one dataset through G1–G6, then fly)
+
+`scripts/p0-1-gated-flight.mjs` (`test:p0-1-gated`) wires the flight to the
+ingestion gates: **the harness runs only if the dataset's ingestion request clears
+all six gates** (G1 human submitter · G2 provenance confirmed · G3 evidence graded
+· G4 every claim anchored · G5 MBM mapping confirmed · G6 dual sign-off). You
+cannot fly ungated.
+
+- Request `ingest-request-001-app.json` grounds the APP/PER/MEL flight in **real
+  public standards** (EN 13381-8 / ISO 834) with citation anchors and dual
+  sign-off → clears G1–G6 → **flight permitted** (accuracy 75%, top route
+  `app:solid → PPA → char`, surprise @350 °C, promotion still not applied).
+- **Bite tests:** drop the mechanism's citation anchor → G4 fails →
+  **flight blocked** (you cannot fly on invented chemistry); single reviewer → G6
+  fails → blocked. The gate genuinely guards the flight.
+
+**Honesty boundary (unchanged):** provenance is grounded in real standards, but the
+numeric TGA/DSC values remain **reference-class pending real instrument data**, and
+the request's reviewer roles are illustrative role-holders demonstrating the
+mechanism — not a claim that named humans reviewed real spans. A *true* P0.1 swaps
+in a human-verified request + a real measured curve; the flow, gates, and report
+shown here are exactly what it runs.
+
 ## Boundaries honoured
 
-❌ no ingestion · ❌ no fetch · ❌ no autonomous decision (report proposes, humans
-dispose) · ❌ no invented chemistry (illustrative datasets, flagged) · MRI/RRI are
-gauges. The first *real* flight (P0.1) = run this harness on **one** human-verified
-dataset that has passed G1–G6.
+❌ no ingestion of real measured curves · ❌ no fetch · ❌ no autonomous decision
+(report proposes, humans dispose) · ❌ no invented chemistry (illustrative datasets
+flagged; provenance grounded in real standards) · MRI/RRI are gauges. The gated
+flight is the safe last step before genuinely measured data.

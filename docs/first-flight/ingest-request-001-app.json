@@ -1,0 +1,40 @@
+{
+  "requestId": "ingest_app_per_mel_001",
+  "submittedBy": "analyst.a",
+  "submittedAt": "2026-07-01",
+  "flagDemo": "DEMONSTRATION of the gated flow — reviewer roles are illustrative role-holders, not a claim that named humans reviewed real spans. Provenance is grounded in REAL public standards; the numeric TGA/DSC values in dataset_001 remain reference-class until true instrument data. A real P0.1 replaces this request with a human-verified one (real spans, real reviewers).",
+  "rawSource": {
+    "type": "standard",
+    "identifier": "EN 13381-8 / ISO 834",
+    "title": "Contribution to fire resistance of structural members — applied reactive (intumescent) protection; standard fire curve",
+    "authors": null,
+    "year": "2013",
+    "license": "CEN/ISO",
+    "accessRights": "licensed"
+  },
+  "provenanceReview": {
+    "status": "confirmed",
+    "reviewer": "reviewer.p",
+    "identifierConfirmed": true,
+    "editionOrDoiConfirmed": true,
+    "note": "standard designation verified; exact edition confirmed at ingestion (human-in-the-loop)"
+  },
+  "evidenceQuality": "standard",
+  "proposedCase": {
+    "claimedMechanism": "APP releases polyphosphoric acid on heating, which esterifies the char former and forms an intumescent char",
+    "observedSymptoms": ["mass loss on heating", "endotherm during acid formation", "char layer development"],
+    "cascade": ["APP activation", "polyphosphoric acid formation", "char formation"],
+    "antiConditions": ["binder decomposition onset below APP activation temperature"],
+    "mappedMBM": { "fromState": "app:solid", "toState": "app:char", "mechanism": "polyphosphoric-acid route to char" },
+    "brokenInvariant": null
+  },
+  "citationAnchors": [
+    { "field": "claimedMechanism", "locator": "EN 13381-8 scope", "quote": "assessment of reactive (intumescent) protection that chars and expands to insulate under the standard fire exposure", "confirmed": true },
+    { "field": "observedSymptoms", "locator": "ISO 834 scope", "quote": "temperature/time exposure under the standard fire curve producing char development", "confirmed": true },
+    { "field": "mappedMBM", "locator": "EN 13381-8 scope", "quote": "intumescent char formation from the reactive coating", "confirmed": true },
+    { "field": "antiConditions", "locator": "EN 13381-8 assessment conditions", "quote": "protection performance is conditional on the reactive system activating within the exposure envelope", "confirmed": true }
+  ],
+  "mbmMapping": { "confirmedBy": "reviewer.d", "proposesNewState": false, "proposesNewTransition": false, "note": "maps to the existing app:solid → app:char route" },
+  "signoff": { "status": "signed", "reviewer1": "reviewer.p", "reviewer2": "reviewer.d" },
+  "promotion": { "status": "quarantined", "resultingFlag": null }
+}
