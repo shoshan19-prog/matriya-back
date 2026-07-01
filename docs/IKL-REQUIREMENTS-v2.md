@@ -17,7 +17,7 @@ requirements spec. Its organizing principle is a deliberate separation of
   21 & 25, and the visualization/explanation engine 27). Almost entirely not yet
   built.
 - **Part II+ — Orchestration Tier** *(who decides)* — the decision layer that
-  conducts the engines: the Orchestrator, Learning Priority (19), Interface
+  conducts the engines: the Engine Contract (II+.0) + Composer, Learning Priority (19), Interface
   Network (20), Knowledge Gap (22), Autonomous Experiment Planner (23),
   Industrial Memory (24), and — at the apex — Meta-Learning (26), which learns
   the research process itself. **This is the layer that turns tools into a
@@ -39,7 +39,7 @@ consequence is a fourth tier that did not exist before:
 
 ```
 Knowledge Base  →  Knowledge Graph  →  18 Specialized Engines
-        →  Reasoning & Orchestration Layer   (NEW — the decision tier)
+        →  Engine Contract + Composer        (NEW — the decision tier, contract-first)
         →  Learning Priority Engine          (what is most worth learning now)
         →  Interface Network Engine          (nothing in chemistry works alone)
         →  Decision  →  Experiment  →  Knowledge Event  →  ΔK
@@ -87,13 +87,21 @@ aspirations.
 7. **Never invent chemistry.** The system stores and reasons over sourced facts;
    it does not fabricate chemical/engineering claims.
 8. **Engines are conducted, not called.** No engine is the entry point. A need is
-   detected, the Orchestrator plans a sequence of engines, runs them (in order or
-   in parallel), and synthesizes. Every synthesized answer still carries the
+   detected, the Composer plans a sequence of engines, runs them (in order or in
+   parallel), and synthesizes. Every synthesized answer still carries the
    provenance and confidence of every engine that contributed, and inherits the
    *lowest* confidence in its chain (uncertainty compounds, never hides).
 9. **Every decision is a research question.** A recommendation that rests on a
    knowledge gap must surface that gap to the Learning Priority Engine, closing
    the loop between *deciding* and *learning*.
+10. **Engines are stateless and contract-bound (Plug & Play).** Every engine
+    satisfies the same **Engine Contract** (name, purpose, consumes, produces,
+    confidence, latency, cost, dependencies, failure modes) and is *stateless*:
+    `Input → Output`, knowing nothing about who called it or what runs next. The
+    management layer never hard-codes a list of engines — it runs anything that
+    satisfies the contract. This is the precondition for the Composer, and it is
+    what lets the engine set grow from 27 to 60 without touching the decision
+    layer. **Define the contract before the conductor.**
 
 ---
 
@@ -193,13 +201,17 @@ and are listed in this table only for a single numbered index.
 | 25 | **Strategic Opportunity Engine** | Strategy / discovery | 🟠→🔭 | market, competitors, patents, regulation, trends + **internal capabilities** | Hunts *opportunities* (not problems): Opportunity Score + "you already hold the mechanism to enter this market." Extends Engines 11 & 13; shares the Fresco-DNA overlay (Principle 5). Spec **II.6**. |
 | 26 | **Meta-Learning Engine** | Apex meta-engine | 🔭 | the entire decision/experiment history | Learns **how the organization discovers knowledge** — which experiment types led to breakthroughs, which mistakes recur, which strategies/teams excel. Improves the *innovation process itself*. Spec **II+.7**. |
 | 27 | **Scientific Visualization Engine** | Presentation / explanation | 🟠→🔭 | mechanisms, interfaces, formula/experiment history, fire/aging, the loop | Renders knowledge as **mechanism**, not data: molecular views, mechanism animations, interface/process/fire simulations, and a Google-Maps-style multi-scale zoom (Building→Bond). Cross-cutting over most layers/engines. Spec **II.7**. |
+| 28 | **Visual Reasoning Engine** | Presentation / reasoning | 🔭 | any engine's inference trace | Shows the *thinking*, not the data: renders the causal reasoning chain (Stone→Moisture→Salt→Binder→Crack→Failure). Sibling of 27 (which shows mechanisms/molecules); 28 shows the *inference path*. Spec **II+.8**. |
+| 29 | **Knowledge Replay Engine** | Learning / audit | 🔭 | Industrial Memory (24) + provenance chains | "Runs the tape" forwards/backwards: Failure→Decision→Experiment→Formulation→Knowledge Event→Evidence→Observation, or Observation→…→Market Success. A learning/onboarding tool built on append-only history. Spec **II+.9**. |
+| 30 | **Interface Physics Engine** | Foundational substrate | 🔭 | every component in the system | **Engine 20 elevated from a data model to the platform's substrate.** Not a library — a physics: every component (Material, Process, Equipment, Climate, Worker, Surface, Regulation, Cost, Supply Chain) exists through its *interfaces*, and **every engine reads/writes the same interface graph**. Spec **II+.3b**. |
 
 > **Engines 1–18 answer "how do we do this right?"** Engine 11 (elevated) answers
 > "*why* do it, and *where* do we plant the next flag?". Engines 19–26 and the
-> Orchestrator answer "*which* experts, in *what* order, *what* should we learn
-> next, and how do we get better at learning itself?". Engine 27 answers "*make
-> me see and understand it*" — the strategic, decision, meta, and comprehension
-> planes, not just the tactical one.
+> Composer answer "*which* experts, in *what* order, *what* should we learn next,
+> and how do we get better at learning itself?". Engines 27–28 answer "*make me
+> see and understand it*", 29 "*show me how we got here*", and 30 is the
+> **substrate** the rest stand on — the strategic, decision, meta, comprehension,
+> and foundational planes, not just the tactical one.
 
 ### Numbering & de-duplication note
 
@@ -219,10 +231,14 @@ add a genuinely new behaviour. The intended relationships:
 | 25 Strategic Opportunity | Business-facing sibling of 11 (patent white-space) + 13 (innovation layer). |
 | 26 Meta-Learning | Apex: consumes 24's memory to improve the whole loop. Depends on all others. |
 | 27 Scientific Visualization | Presentation layer over Layer 4 (mechanisms), Engine 20 (interfaces), formula/experiment history and Engines 16/17 — it *renders* existing knowledge, it does not create any. |
+| 28 Visual Reasoning | Presentation of the *inference path* (why), complementary to 27's *mechanism* view (what/how). |
+| 29 Knowledge Replay | A traversal of Industrial Memory (24) + append-only provenance; creates nothing, replays what exists. |
+| 30 Interface Physics | Not a peer engine — the **elevation of Engine 20** into the shared substrate all engines operate on. |
 
 Do **not** build these as independent services — build 22→19, 23←8, 24←Layer 14
-as extensions, reserve 26 for last, and treat 27 as a rendering layer that binds
-to whatever data already carries provenance.
+as extensions, reserve 26 for last, treat 27/28 as rendering layers and 29 as a
+memory traversal, and treat 30 as the substrate that Engine 20 grows into (not a
+new silo).
 
 ## II.1 Confidence Engine
 
@@ -393,38 +409,81 @@ understanding. This is one of the platform's strongest differentiators: it shows
 
 # Part II+ — Orchestration Tier (the decision layer)
 
-*This is the tier that was missing. The 18 engines are specialists; this tier is
-the chief engineer that conducts them. It sits **between the engines and the
-user**, and it is where a knowledge base becomes a research system.*
+*This is the tier that was missing. The engines are specialists; this tier makes
+them work together. It sits **between the engines and the user**, and it is where
+a knowledge base becomes a research system.*
 
-**Status: 🟠 NEW ARCH** (all three components). Prerequisite: enough engines
-exist to be worth conducting (≥ Search, Comparison, Compatibility, Substitution,
-Cost, Supply-Chain).
+> **Contract-first, not orchestrator-first.** The single most important step in
+> this tier is *not* the Orchestrator — it is the **Engine Contract** (II+.0). An
+> Orchestrator that hard-knows N engines is a liability that must be rewritten
+> every time an engine is added. A **Composer** that runs anything satisfying the
+> contract never changes as the engine set grows from 27 to 60. Build the contract
+> first; the conductor becomes trivial and permanent. (Principle 10.)
 
-## II+.1 Reasoning & Orchestration Layer (the Orchestrator)
+**Status: 🟠 NEW ARCH.** Prerequisite for the Composer: enough engines exist to
+be worth composing (≥ Search, Comparison, Compatibility, Substitution, Cost,
+Supply-Chain) — *and* they all speak the contract.
 
-The user never picks an engine. A **need is detected**, the Orchestrator plans a
-sequence of engines, runs them (serial where there are dependencies, parallel
-where independent), and **synthesizes** a single explainable answer.
+## II+.0 Engine & Interface Contract (the foundation) + Marketplace
 
-*Example — "I want a new mineral plaster":*
+**Every engine is Plug & Play: stateless, and answers the same contract.**
+
 ```
-Need detected → Search → Compatibility → Patent(11) → Cost → Supply-Chain
-             → Geo → Simulation(Reliability/Prediction) → Recommendation → Synthesis
+Engine:
+  Name:          Patent Intelligence
+  Purpose:       map IP landscape for a material/mechanism
+  Consumes:      Patent, Materials, Mechanisms
+  Produces:      PatentAnalysis
+  Confidence:    0.82
+  Latency:       …
+  Cost:          …
+  Dependencies:  Knowledge Library, Mechanism Graph
+  Failure modes: missing claims
 ```
-*Example — "TiO₂ is missing":*
+
+- **Stateless:** an engine is `Input → Output`. It knows nothing about who called
+  it or what runs next. No engine imports another; they compose only through the
+  contract.
+- **Typed I/O:** `Consumes`/`Produces` are named types (e.g. `PatentAnalysis`) so
+  the Composer can wire engines like LEGO — output type of one = input type of the
+  next.
+- **Self-describing cost/confidence:** every engine advertises confidence,
+  latency and cost so the Composer can plan and so answers inherit the lowest
+  confidence in the chain (Principle 8).
+
+**Engine Marketplace (the payoff).** Because engines are contract-bound modules,
+new ones drop in with **zero changes** to the decision layer. Future domain
+engines already anticipated: Corrosion, Concrete, Polymer, AI-Vision,
+Spectroscopy, FTIR, DSC, TGA, XRD, … Each is just another module that satisfies
+the contract. This is the difference between a product and a platform.
+
+## II+.1 Engine Composer (not an Orchestrator)
+
+Not a manager — a **composer**. The user never picks an engine. A **need is
+detected**, the Composer plans a sequence of *contract-satisfying* engines, runs
+them (serial where there are dependencies, parallel where independent), and
+**synthesizes** a single explainable answer. Same engines, different
+combinations — LEGO:
+
 ```
-Need detected → Supply-Chain → Substitution → Mechanism → Performance
-             → Cost → Patent(11) → Recommendation
+Question → Translator → Search → Mechanism → Patent → Trade-off → Simulation → Recommendation
+Question → Failure → Knowledge-Gap → Experiment-Planner → Recommendation
+Question → Supply-Chain → Alternatives → Cost → Geo → Recommendation
 ```
-Requirements:
-- **Planner:** maps a detected need → an engine plan (DAG), not a fixed pipeline.
+
+Internals — `Task → Planner → Sequence → Execute → Merge`:
+- **Planner:** maps a detected need → an engine plan (DAG) by matching
+  `Produces`/`Consumes` types, not a fixed pipeline and not a hard-coded engine list.
 - **Executor:** runs the DAG, passing each engine's provenance forward.
-- **Synthesizer:** merges outputs into one answer that inherits the *lowest*
-  confidence in the chain and lists every contributing source (Principle 8).
+- **Merger/Synthesizer:** merges outputs into one answer that inherits the
+  *lowest* confidence in the chain and lists every contributing source (Principle 8).
 - **Gap emitter:** any unanswered sub-question is emitted to II+.2 (Principle 9).
 - Fully auditable: the plan, the engines run, and the synthesis are all logged
   (extends the existing `decision_audit_log` / research-loop machinery).
+
+> The "Orchestrator" of earlier drafts *is* this Composer once it plans
+> dynamically. The rename is deliberate: it **composes** contract-bound modules;
+> it does not **manage** a known set. That is why it never needs rewriting.
 
 ## II+.2 Learning Priority Engine (Engine 19)
 
@@ -437,7 +496,7 @@ experiment" and "run *this* experiment."
 ```
 *Output example:* "Running this experiment cuts uncertainty in the whole
 intumescent family by 18%" — a ranked, quantified learning recommendation, not a
-vague suggestion. Feeds the Orchestrator (which gaps to chase) and Experimental
+vague suggestion. Feeds the Composer (which gaps to chase) and Experimental
 Planning (Engine 8) / DoE. This is arguably the highest-leverage meta-engine: it
 directs the entire research loop's attention.
 
@@ -458,6 +517,27 @@ chain of effects.** This is the structural companion of Engine 15 (Relationship
 Intelligence): Engine 15 types the edges; Engine 20 elevates interfaces to nodes
 so effects propagate across the network. Each interface carries provenance,
 confidence, version and status like any other fact.
+
+## II+.3b Interface Physics Engine (Engine 30) — Engine 20 as substrate
+
+**Status: 🔭 FUTURE VISION** — possibly the single largest idea in the whole
+architecture. Engine 20 (above) is a *data model* for interfaces. Engine 30 is
+what it becomes when that model stops being one engine's concern and turns into
+the **substrate every engine operates on**. The shift:
+
+> You no longer study *materials*. You study *interfaces*.
+
+Every component in the system — Material, Process, Equipment, Climate, Worker,
+Surface, Regulation, Cost, Supply Chain — exists through its interfaces, and
+**all engines read and write the same interface graph** rather than each keeping
+its own private view. Compatibility, Substitution, Failure, Reliability,
+Trade-off, Visualization — all become *queries over one physics of interfaces*.
+
+This is a foundational commitment, not a feature: it says the platform's core
+object is the interface, not the material. It is built late (the engines and data
+must exist first), but the interface model (Engine 20 storage) should be laid
+down early with this destination in mind — hence "interfaces as first-class
+nodes" already appears in build-order step 2.
 
 ## II+.4 Knowledge Gap Engine (Engine 22)
 
@@ -527,6 +607,37 @@ architecture: it cannot be copied, because it is built from **this
 organization's** accumulated history and learning. Everything else can be
 rebuilt from public sources; this cannot.
 
+## II+.8 Visual Reasoning Engine (Engine 28)
+
+**Status: 🔭 FUTURE VISION.** Not graphs, not tables — **visual thinking.** When
+you ask *"why did the plaster fail?"*, the system doesn't return a paragraph; it
+builds the reasoning as a chain you can *see*:
+
+```
+Stone → Moisture → Salt → Binder → Crack → Failure
+```
+
+You watch the inference form. It is the sibling of Engine 27: **27 shows the
+mechanism/molecule (what & how); 28 shows the reasoning/causal path (why).** It
+renders the Composer's own inference trace (II+.1) plus Failure (Layer 12) and
+Interface (Engine 20/30) chains — making the system's reasoning inspectable, not
+a black box (Principle 6).
+
+## II+.9 Knowledge Replay Engine (Engine 29)
+
+**Status: 🔭 FUTURE VISION.** Because knowledge is append-only and every record
+carries provenance, the history can be **replayed** — forwards or backwards:
+
+```
+Failure → Decision → Experiment → Formulation → Knowledge Event → Evidence → Observation
+Observation → … → Market Success        (reverse)
+```
+
+A powerful learning and onboarding tool: a new engineer can "run the tape" of how
+a product came to be, or trace a field failure back to the decision that caused
+it. It is a traversal of Industrial Memory (Engine 24) + the version history —
+it creates nothing, it replays what already exists.
+
 ---
 
 # Part III — Future Vision (intelligence platform)
@@ -546,7 +657,7 @@ the next project:
 
 ```
 Industrial Knowledge Library → Knowledge Graph → 18 Specialized Engines
-   → Reasoning & Orchestration Layer → Learning Priority Engine → Interface Network Engine
+   → Engine Contract + Composer → Learning Priority Engine → Interface Network Engine
    → Decision → Experiment → Knowledge Event → ΔK
    → (human-gated validation) → Industrial Knowledge Library   ⟲
 ```
@@ -567,11 +678,12 @@ capabilities form a lifecycle, each stage owned by parts of the architecture:
 | Knowledge Validation | Confidence Engine (II.1) + human-gated validation |
 | Knowledge Reasoning | Engines 2–6, 15; Semantic Translator (II.2) |
 | Knowledge Discovery | Engines 11, 13, 16; Knowledge Gap (22) |
-| Decision Support | Orchestrator (II+.1) + Trade-off (21) |
+| Decision Support | Engine Composer (II+.1, over the contract II+.0) + Trade-off (21) |
 | Experiment Planning | Learning Priority (19) + Autonomous Experiment Planner (23) |
 | Knowledge Creation | Continuous Learning Loop (III.1) + Industrial Memory (24) |
 | Business Opportunity | Strategic Opportunity (25) + Strategic Landscape (11) |
-| Comprehension / Explanation | Scientific Visualization (27) — renders mechanisms across every stage |
+| Comprehension / Explanation | Scientific Visualization (27) + Visual Reasoning (28); Knowledge Replay (29) |
+| Foundational substrate | Interface Physics (30) — the interface graph all engines share |
 | *(meta)* Process improvement | Meta-Learning (26) — learns the lifecycle itself |
 
 ## III.3 Long-term platform
@@ -583,10 +695,11 @@ system**. Purpose: shorten R&D cycles, reduce engineering uncertainty, preserve
 organizational knowledge, and generate new validated insights over time.
 
 Realizing it depends on: a populated knowledge base (Part I at scale), the
-reasoning engines (Part II), the Orchestration Tier that conducts them
-(Part II+), and the predictive/discovery engines (7, 13, 14, 16, 17) maturing on
-top of real data. The Orchestration Tier is what makes the platform a *decision*
-system rather than a search box.
+reasoning engines (Part II), the **Engine Contract + Composer** that compose them
+(Part II+.0–1), and the predictive/discovery engines (7, 13, 14, 16, 17) maturing
+on top of real data. The contract is what makes it a *platform* (engines are
+modules) rather than a program; the Composer is what makes it a *decision* system
+rather than a search box.
 
 ---
 
@@ -614,10 +727,12 @@ confidence and marks generated content as hypothesis).
 - **Knowledge base:** ✅ substantially complete (Layers 1–13, Layer 14 partial;
   provenance, versioning, separation, confidence storage).
 - **Engines:** 🟢 only Engine 1 (Industrial Search) partially shipped
-  (semantic search + bulk import + reindex). Engines 2–27 not built.
-- **Orchestration tier (II+):** 🟠 not built — the decision layer that conducts
-  the engines (Orchestrator + meta-engines 19, 20, 22, 23, 24). This is the phase
-  the project is now entering.
+  (semantic search + bulk import + reindex). Engines 2–30 not built.
+- **Orchestration tier (II+):** 🟠 not built. The **first** deliverable here is
+  the Engine Contract (II+.0), then the Composer (II+.1) — *not* an Orchestrator
+  that hard-knows the engines. This is the phase the project is now entering.
+- **Interface Physics (30):** 🔭 the substrate all engines share — the interface
+  model (Engine 20) is laid down early; the physics matures late.
 - **Meta-Learning (26):** 🔭 apex — the competitive moat; built last, from years
   of accumulated Industrial Memory.
 - **Future vision:** 🔭 substrate only (closed research loop).
@@ -641,37 +756,44 @@ reasoning → discovery.**
    versioned re-fetch + entity resolution + source-trust. Biggest scaling lever.
 4. **Reasoning engines on real data** *(🟠)* — Recommendation (3), Substitution
    (5), Material Selection (6), Sustainability (10), Semantic Translator (II.2).
-5. **Stand up the Orchestration Tier** *(🟠, II+)* — once ~6 engines exist,
-   build the Orchestrator (planner → executor → synthesizer over the existing
-   `decision_audit_log`/research-loop), then the **Learning Priority Engine (19)**
-   and the **Interface Network Engine (20)**. *This is the step that turns the
-   toolset into a research system — do it as soon as enough engines justify it,
-   not last.*
-6. **Research-direction meta-engines** *(🟠, II+)* — Knowledge Gap (22) → feeds
-   Learning Priority (19); Autonomous Experiment Planner (23) on top of Engine 8;
-   Industrial Memory (24) capturing decision→outcome→lesson. This is what closes
-   the research loop.
+5. **Contract-first orchestration** *(🟠, II+.0–1)* — **before** any conductor:
+   a. **Engine Contract** (II+.0) — retrofit Engine 1 (Search) and every new
+      engine to the stateless, typed contract; this is the pivot that makes the
+      rest permanent.
+   b. **Composer** (II+.1) — a generic planner→execute→merge over anything that
+      satisfies the contract, built on the existing `decision_audit_log`/
+      research-loop. *Not* an Orchestrator that hard-knows the engines.
+   c. **Visual Reasoning (28)** and **Knowledge Replay (29)** — make the
+      Composer's reasoning and the history inspectable.
+   Rationale: with the contract in place, the "Orchestrator" step never has to be
+   rewritten — 27 engines today or 60 in two years run through the *same* Composer.
+   The old "Orchestrator-first" plan is explicitly rejected here.
+6. **Research-direction meta-engines** *(🟠, II+)* — Learning Priority (19),
+   Knowledge Gap (22) → feeds 19; Autonomous Experiment Planner (23) on Engine 8;
+   Industrial Memory (24) capturing decision→outcome→lesson. Closes the loop.
 7. **IKL-backed QA** integrated with the existing kernel/RAG while preserving
-   separation — the Orchestrator becomes the answer path.
+   separation — the Composer becomes the answer path.
 8. **Discovery & strategy** *(🟠/🔭)* — Strategic Landscape (11, II.4), Strategic
    Opportunity (25), Trade-off (21), Supply-Chain Shock (12), Combination
-   Discovery (16), plus the validation workflow.
+   Discovery (16), plus the validation workflow, and the **Engine Marketplace**
+   opening to new domain engines (Corrosion, Concrete, Polymer, spectroscopy:
+   FTIR/DSC/TGA/XRD, AI-Vision).
    *Visualization (27) can start early and grow in parallel:* the Molecular View
    is achievable as soon as raw materials carry CAS (Layer 3); the Interaction
    Network and Formula/Knowledge-Evolution views follow their underlying engines.
-9. **Predictive & platform** *(🔭)* — Performance Prediction (7), Reliability &
-   Aging (17), Multi-Objective Optimization (18), Digital Twin (14),
-   Cross-Industry Analogy (13), the closed Continuous Learning Loop (III.1), and
-   finally **Meta-Learning (26)** — built last, once there is a history to learn
-   from.
+9. **Predictive, substrate & platform** *(🔭)* — Performance Prediction (7),
+   Reliability & Aging (17), Multi-Objective Optimization (18), Digital Twin (14),
+   Cross-Industry Analogy (13), **Interface Physics (30)** as the shared
+   substrate, the closed Continuous Learning Loop (III.1), and finally
+   **Meta-Learning (26)** — built last, once there is a history to learn from.
 
 ## V.3 Requirement → status quick index
 
 | Bucket | Implemented | Partial | Fits arch | New arch | Future |
 |--------|-------------|---------|-----------|----------|--------|
 | Knowledge base (Layers 1–14 + cross-cutting) | Layers 1–3,5–12; provenance; versioning; separation; confidence storage | Layers 4, 13, 14 | hierarchy depth, mechanism sub-typing, review-status field | Digital assets (patterns, decision trees, knowledge events, evolution chains) | — |
-| Engines (1–27 + translator + confidence + ingestion) | — | Engine 1 | Engine 2; Confidence Engine; Engines 4/5/15 (storage/read side) | Engines 3,6,8,10,11,12,19,20,21,22,23,24,25,27; Semantic Translator; ingestion pipeline | Engines 7,9,13,14,16,17,18,26; Engine 11 strategic layers; Engine 27 advanced views |
-| Orchestration tier (II+) | — | — | — | Orchestrator; Learning Priority (19); Interface Network (20); Knowledge Gap (22); Autonomous Experiment Planner (23); Industrial Memory (24) | Meta-Learning (26); closed-loop autonomy |
+| Engines (1–30 + translator + confidence + ingestion) | — | Engine 1 | Engine 2; Confidence Engine; Engines 4/5/15 (storage/read side) | Engines 3,6,8,10,11,12,19,20,21,22,23,24,25,27; Semantic Translator; ingestion pipeline | Engines 7,9,13,14,16,17,18,26,28,29,30; Engine 11 strategic layers; Engine 27 advanced views |
+| Orchestration tier (II+) | — | — | — | **Engine Contract (II+.0)**; Composer (II+.1); Learning Priority (19); Interface Network (20); Knowledge Gap (22); Autonomous Experiment Planner (23); Industrial Memory (24) | Engine Marketplace; Interface Physics (30); Visual Reasoning (28); Knowledge Replay (29); Meta-Learning (26); closed-loop autonomy |
 | Vision | — | learning-loop substrate | — | — | Continuous Learning Loop; platform; capability lifecycle |
 
 ---
