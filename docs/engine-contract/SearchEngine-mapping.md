@@ -23,6 +23,10 @@ Reference: handler at `iklEndpoints.js` `router.post('/search', …)`; returns
 | `failureModes` | ad-hoc `{error}` + HTTP 400/500/503 | ⚠ untyped codes (G6) |
 | `provenance` | ✔ each `record.source` = `ikl_sources` row | ✔ (item level; G3 for envelope) |
 | `domainSeparation: reads external` | ✔ IKL is external-only; `ikl_embeddings` is separate from Fresco `rag_documents` | ✔ |
+| **`purity: pure` / `changes: []`** (v0.2) | ✔ search only reads | ✔ |
+| **`transformation`** (v0.2) | ✔ `SearchQuery --rank_by_similarity--> SearchResultSet` | ✔ (declarable) |
+| **`reasoning`** (v0.2) | class `retrieval`, confidenceType `semantic_similarity`; `score` = similarity | ✔ declarable; runtime `reasoningTrace`/`independentSources` not emitted (G8) |
+| **`capabilities`** (v0.2) | observe 5, explain 1, rest 0 (a pure locator, not an explainer) | ✔ (declarable) |
 
 **Field-by-field I/O mapping**
 
@@ -63,19 +67,31 @@ Every gap is **additive** — an adapter around Search, not a change to it.
   bound to `(req,res)` + `requireAuth`. For true plug-and-play the core should be
   callable as `run(input, context) → Result`, with auth/host concerns *outside*
   the engine. *Fix (later):* extract a pure `runSearch(input, ctx)`; the route
-  becomes a thin caller. **Not done now** (would be a refactor — out of scope).
+  becomes a thin caller. **Not done now** (would be a refactor — out of scope,
+  and explicitly deferred by instruction).
+- **G8 — Reasoning Signature is declared but not emitted at runtime (v0.2).** The
+  manifest states `class: retrieval` / `confidenceType: semantic_similarity`, but
+  the response does not attach the per-output signature (`reasoningClass`,
+  `evidenceCount`, `independentSources`, `reasoningTrace`). *Fix:* include the
+  reasoning block in the result envelope; `evidenceCount` = number of hits;
+  `independentSources` is weak for pure retrieval and may stay null. Additive.
 
 ## 3. Verdict
 
 **Can IKL Search be a plug-and-play engine? — Yes, with a thin conformance
-adapter; no core rewrite.** All seven gaps are additive (manifest, envelope,
-typed ids, typed error codes, metric emission) plus one optional later
-extraction (G7). None require changing *what Search does* or *how it ranks*.
+adapter; no core rewrite.** All eight gaps are additive (manifest, envelope,
+typed ids, typed error codes, metric emission, reasoning signature) plus one
+optional later extraction (G7). None require changing *what Search does* or *how
+it ranks*. Notably, the four v0.2 "quality of thinking" dimensions
+(reasoning / changes / capabilities / transformation) were all **declarable for
+Search without touching it** — the contract got richer and Search still fit.
 
-Because a real engine fit the contract with additive-only gaps, the contract
-design is validated and it is safe to design (later, on approval) the pure-function
-adapter (G7) and then the Composer. Had any gap demanded changing Search's
-behaviour, the correct move would have been to revise this contract first.
+Because a real engine fit the enriched contract with additive-only gaps, the
+contract design is validated at v0.2. **Implementation remains deferred by
+instruction — `runSearch()` is NOT written.** The next step, on explicit approval
+only, is the pure-function extraction (G7), then the Composer. Had any gap demanded
+changing Search's behaviour, the correct move would have been to revise the
+contract first.
 
-**Awaiting explicit approval before any runtime change** (G1/G3/G6 adapter, or
+**Awaiting explicit approval before any runtime change** (G1/G3/G6/G8 adapter, or
 the G7 extraction).

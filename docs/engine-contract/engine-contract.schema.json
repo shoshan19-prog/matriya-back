@@ -1,8 +1,8 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://matriya.example/schemas/engine-contract/v0.1.json",
+  "$id": "https://matriya.example/schemas/engine-contract/v0.2.json",
   "title": "MATRIYA Engine Contract",
-  "description": "Manifest that every Industrial Intelligence Platform engine MUST publish. It is a self-describing declaration — NOT runtime code and NOT an orchestrator. An engine that validates against this schema can be composed as a plug-and-play module. DRAFT v0.1 — documentation only; no runtime behaviour is implied or changed by this file.",
+  "description": "Manifest that every Industrial Intelligence Platform engine MUST publish. It is a self-describing declaration — NOT runtime code and NOT an orchestrator. An engine that validates against this schema can be composed as a plug-and-play module. DRAFT v0.2 — adds the 'quality of thinking' dimensions (reasoning signature, state changes, capability vector, transformation) on top of v0.1's I/O. Documentation only; no runtime behaviour is implied or changed by this file.",
   "type": "object",
   "additionalProperties": false,
   "required": [
@@ -11,10 +11,15 @@
     "version",
     "purpose",
     "stateless",
+    "purity",
     "sideEffects",
+    "changes",
+    "transformation",
     "consumes",
     "produces",
+    "reasoning",
     "confidence",
+    "capabilities",
     "cost",
     "latency",
     "dependencies",
@@ -23,7 +28,7 @@
   "properties": {
     "apiVersion": {
       "description": "Contract format version. Pins the manifest to a schema revision.",
-      "const": "engine-contract/v0.1"
+      "const": "engine-contract/v0.2"
     },
     "name": {
       "description": "Stable, unique engine id (kebab-case, dot-namespaced allowed).",
@@ -57,6 +62,67 @@
     "sideEffects": {
       "description": "Effect on the world. Reasoning/search engines should be 'none' or 'read'. 'write' engines must document what they mutate.",
       "enum": ["none", "read", "write"]
+    },
+    "purity": {
+      "description": "Pure engines only read; stateful engines mutate shared state. Lets the Composer classify an engine WITHOUT reading its code. Must be consistent with `changes`: 'pure' iff `changes` is empty.",
+      "enum": ["pure", "stateful"]
+    },
+    "changes": {
+      "description": "What shared state this engine mutates. Empty array = pure/read-only. Same confidence number from a pure vs a stateful engine has very different operational meaning; the Composer must know which is which.",
+      "type": "array",
+      "items": { "$ref": "#/$defs/change" }
+    },
+    "transformation": {
+      "description": "An engine is defined by what it TRANSFORMS, not by what it is. Declares Input -> Transformation -> Output so the platform is a set of transformations, not a bag of services.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["statement", "from", "to", "operation"],
+      "properties": {
+        "statement": { "type": "string", "description": "Human phrasing, e.g. 'Query -> ranked[Record] by semantic proximity'." },
+        "from": { "type": "array", "items": { "type": "string" }, "description": "Input type id(s)." },
+        "to": { "type": "array", "items": { "type": "string" }, "description": "Output type id(s)." },
+        "operation": { "type": "string", "description": "Short verb id for the transform, e.g. 'rank_by_similarity', 'derive_landscape', 'append_event'." }
+      }
+    },
+    "reasoning": {
+      "description": "The 'quality of thinking'. Two engines can both emit confidence 0.81 while meaning entirely different things (semantic similarity vs. three independent causal evidences). This block declares what the confidence MEANS.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["class", "confidenceType", "emitsTrace"],
+      "properties": {
+        "class": {
+          "description": "The kind of reasoning the engine performs.",
+          "enum": ["retrieval", "causal", "experimental", "statistical", "analogical", "rule_based", "generative", "optimization", "simulation"]
+        },
+        "confidenceType": {
+          "description": "What the confidence number is derived from — its meaning, not its magnitude.",
+          "enum": ["semantic_similarity", "source_tier", "independent_evidence", "model_probability", "statistical_significance", "experimental_replication", "expert_judgment"]
+        },
+        "emitsTrace": {
+          "description": "Whether the engine can emit a reasoning_trace at runtime (in the result envelope).",
+          "type": "boolean"
+        },
+        "evidenceModel": {
+          "description": "How evidence is counted for this engine (e.g. 'one hit = one evidence', 'independent sources only').",
+          "type": "string"
+        },
+        "notes": { "type": "string" }
+      }
+    },
+    "capabilities": {
+      "description": "Capability Vector — the cognitive capabilities the engine provides, each rated 0..5. Lets the Composer select engines by CAPABILITY, not by name (critical at 40-60+ engines). Maps to the researcher's See/Understand/Predict/Decide loop: observe->See, explain->Understand, predict->Predict, recommend/validate->Decide.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["observe", "explain", "predict", "recommend", "generate", "validate", "learn"],
+      "properties": {
+        "observe": { "$ref": "#/$defs/rating" },
+        "explain": { "$ref": "#/$defs/rating" },
+        "predict": { "$ref": "#/$defs/rating" },
+        "recommend": { "$ref": "#/$defs/rating" },
+        "generate": { "$ref": "#/$defs/rating" },
+        "validate": { "$ref": "#/$defs/rating" },
+        "learn": { "$ref": "#/$defs/rating" }
+      }
     },
     "consumes": {
       "description": "Typed inputs. The Composer wires engines by matching a producer's `produces[].type` to a consumer's `consumes[].type`.",
@@ -167,6 +233,25 @@
     }
   },
   "$defs": {
+    "rating": {
+      "description": "Capability strength, 0 (none) .. 5 (defining strength).",
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 5
+    },
+    "change": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["target", "effect"],
+      "properties": {
+        "target": { "type": "string", "description": "Named shared resource mutated, e.g. 'knowledge-ledger', 'research-queue'." },
+        "effect": { "enum": ["append", "update", "enqueue", "delete"] },
+        "domain": {
+          "description": "Which knowledge domain the change lands in (separation rule).",
+          "enum": ["external", "internal", "hypothesis"]
+        }
+      }
+    },
     "port": {
       "type": "object",
       "additionalProperties": false,

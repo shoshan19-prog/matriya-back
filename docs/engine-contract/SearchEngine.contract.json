@@ -1,5 +1,5 @@
 {
-  "apiVersion": "engine-contract/v0.1",
+  "apiVersion": "engine-contract/v0.2",
   "name": "ikl-search",
   "displayName": "Industrial Search (Engine 1)",
   "version": "0.1.0",
@@ -7,7 +7,31 @@
   "category": "search",
   "stateless": true,
   "deterministic": false,
+  "purity": "pure",
   "sideEffects": "read",
+  "changes": [],
+  "transformation": {
+    "statement": "SearchQuery -> ranked[IKL Record] by semantic proximity",
+    "from": ["ikl.SearchQuery@1"],
+    "to": ["ikl.SearchResultSet@1"],
+    "operation": "rank_by_similarity"
+  },
+  "reasoning": {
+    "class": "retrieval",
+    "confidenceType": "semantic_similarity",
+    "emitsTrace": false,
+    "evidenceModel": "one vector hit = one piece of evidence; hits are not independence-checked",
+    "notes": "score 0.81 here means 'this record is semantically close to the query' — NOT 'supported by independent evidence'. Contrast a Patent/causal engine whose 0.81 would mean three independent evidences. No reasoning_trace is emitted yet (gap G8)."
+  },
+  "capabilities": {
+    "observe": 5,
+    "explain": 1,
+    "predict": 0,
+    "recommend": 0,
+    "generate": 0,
+    "validate": 0,
+    "learn": 0
+  },
   "consumes": [
     {
       "name": "query",

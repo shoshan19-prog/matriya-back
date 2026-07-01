@@ -1,10 +1,23 @@
-# MATRIYA Engine Contract — DRAFT v0.1
+# MATRIYA Engine Contract — DRAFT v0.2
 
-**Status:** documentation-only draft. **No runtime code, no Composer, no
-orchestration, no refactor of existing Search.** This defines *what it means for
-an engine to be plug-and-play* and is validated against one real engine
-(IKL Search) as a test case — see `SearchEngine.contract.json` and
+**Status:** documentation-only draft. **No runtime code, no `runSearch()`, no
+Composer, no orchestration, no refactor of existing Search.** This defines *what
+it means for an engine to be plug-and-play* and is validated against one real
+engine (IKL Search) as a test case — see `SearchEngine.contract.json` and
 `SearchEngine-mapping.md`.
+
+> **v0.2 changelog.** v0.1 described an engine's *I/O* (consumes/produces,
+> confidence/cost/latency/dependencies/failure modes) but not the **quality of
+> its thinking**. Two engines can both report `confidence: 0.81` and mean utterly
+> different things (semantic similarity vs. three independent causal evidences).
+> v0.2 adds four dimensions so the Composer routes by *meaning and behaviour*,
+> not just by shape:
+> **(1) Reasoning Signature — what the confidence means; (2) State Changes — does
+> it change the world or only read it; (3) Capability Vector — which cognitive
+> capabilities it provides; (4) Transformation — define an engine by what it
+> transforms, not by what it is.** Implementation is deferred until the contract
+> carries these — an I/O-only contract would let the Composer be built blind to
+> meaning.
 
 > Why this first, and not the Composer: if the one engine we already shipped
 > cannot enter the contract cleanly, the whole Plug & Play idea is broken. So we
@@ -40,17 +53,70 @@ Formal schema: [`engine-contract.schema.json`](./engine-contract.schema.json)
 
 | Field | Meaning |
 |-------|---------|
-| `apiVersion` | Pins the manifest to a contract revision (`engine-contract/v0.1`). |
+| `apiVersion` | Pins the manifest to a contract revision (`engine-contract/v0.2`). |
 | `name`, `version`, `purpose`, `category` | Identity. |
 | `stateless` | MUST be `true`. |
+| `purity` | `pure` / `stateful` — see State Changes below. |
 | `sideEffects` | `none` / `read` / `write`. |
+| `changes[]` | Shared state the engine mutates (empty = pure). |
+| `transformation` | The Input→Output transformation the engine *is*. |
 | `consumes[]`, `produces[]` | Typed ports (`type`, `cardinality`, `schema`/`schemaRef`, `required`). |
+| `reasoning` | Reasoning Signature — what the confidence *means*. |
 | `confidence` | `emits`, `scale`, `granularity`, `method`, `calibrated`. |
+| `capabilities` | Capability Vector — observe/explain/predict/recommend/generate/validate/learn (0..5). |
 | `cost` | `model` (relative/absolute), `unit`, `estimate`. |
 | `latency` | `unit: ms`, `p50/p95/max` (may be null until measured). |
 | `dependencies[]` | `name`, `kind` (datastore/index/model/service/config), `required`. |
 | `failureModes[]` | Stable `code` (`E_*`), `condition`, `result`, `severity`, `recoverable`. |
 | `provenance`, `domainSeparation` | Platform guarantees the engine upholds. |
+
+## The four v0.2 dimensions (quality of thinking)
+
+**1. Reasoning Signature (`reasoning` + runtime).** Confidence is never a bare
+number. The manifest declares the reasoning `class` (retrieval / causal /
+experimental / statistical / analogical / rule_based / generative / optimization
+/ simulation) and the `confidenceType` (what the number is derived from). At
+runtime the result envelope carries the full signature:
+
+```jsonc
+{
+  "confidence": 0.81,
+  "confidenceType": "semantic_similarity",   // vs "causal", "experimental", "statistical", ...
+  "reasoningClass": "retrieval",
+  "evidenceCount": 6,
+  "independentSources": 3,
+  "reasoningTrace": "…"                        // optional; emitsTrace declares if present
+}
+```
+
+Same magnitude, different meaning: Search's `0.81` = "semantically close"; a
+Patent engine's `0.81` = "three independent evidences agree". The Composer must
+not average these as if they were the same quantity.
+
+**2. State Changes (`purity` + `changes[]`).** Declares whether the engine
+changes the world. `pure` (empty `changes`) vs `stateful`. Examples:
+
+| Engine | Consumes | Produces | Changes |
+|--------|----------|----------|---------|
+| Search | Query | SearchResult | — (pure) |
+| Knowledge Event | Evidence | KnowledgeEvent | knowledge-ledger (append) |
+| Experiment Planner | Gaps | Plan | research-queue (enqueue) |
+
+The Composer learns *who is pure and who is stateful* from the manifest, without
+reading code — essential for safe planning (a pure engine can be retried/parallelised freely; a stateful one cannot).
+
+**3. Capability Vector (`capabilities`).** Each engine rates itself 0..5 on
+observe / explain / predict / recommend / generate / validate / learn. At 40–60
+engines the Composer selects by *capability*, not by name — "I need something
+that can *explain*, strongly" → pick by `explain ≥ 4`. This maps directly to the
+researcher's loop **See → Understand → Predict → Decide** (observe→See,
+explain→Understand, predict→Predict, recommend/validate→Decide).
+
+**4. Transformation (`transformation`).** *An engine is defined not by what it is,
+but by what it transforms.* Each engine declares `from → operation → to`
+(`SearchQuery --rank_by_similarity--> SearchResultSet`). This reframes the whole
+platform from "a collection of services" into "a collection of transformations" —
+which is what makes composition meaningful.
 
 ## The composable result envelope (target shape)
 
@@ -66,6 +132,13 @@ shape — the current Search response does not emit it yet (gap G3):
   "status": "ok",                 // ok | empty | degraded | failed
   "data": { /* payload matching produces[].schema */ },
   "confidence": 0.71,             // set-level, 0..1, or null
+  "reasoning": {                  // v0.2 — what the confidence MEANS
+    "confidenceType": "semantic_similarity",
+    "reasoningClass": "retrieval",
+    "evidenceCount": 6,
+    "independentSources": 3,
+    "reasoningTrace": null
+  },
   "provenance": [ /* source refs contributing to this output */ ],
   "metrics": { "latencyMs": 128, "cost": null },
   "warnings": [],
@@ -90,11 +163,15 @@ The core behaviour is untouched — conformance is *additive*.
 Looking at IKL Search through this contract, can we answer
 **"Can this be a plug-and-play engine?"**
 
-**Yes — conditionally.** Search maps onto the contract with a thin conformance
-adapter (manifest + result envelope + typed error codes + confidence labelling)
-and **no change to its search behaviour**. The specifics, and the exact gaps,
-are in [`SearchEngine-mapping.md`](./SearchEngine-mapping.md).
+**Yes — conditionally.** Search maps onto the contract (including all four v0.2
+dimensions) with a thin conformance adapter (manifest + result envelope + typed
+error codes + reasoning signature) and **no change to its search behaviour**. The
+specifics, and the exact gaps, are in
+[`SearchEngine-mapping.md`](./SearchEngine-mapping.md).
 
-Decision gate (per the brief's A.2 test): proceed to design the Composer **only
-because** a real engine fit the contract with additive-only gaps. Had the gaps
-required changing what Search *does*, we would revise the contract first.
+Decision gate (per the brief's A.2 test): **implementation stays deferred.** We do
+*not* write `runSearch()` yet. The contract now carries meaning and behaviour
+(reasoning, changes, capabilities, transformation), not only I/O — that was the
+precondition. The next step, on explicit approval only, is the pure-function
+extraction (gap G7); the Composer comes after that. Had any gap required changing
+what Search *does*, we would revise the contract first, not the engine.

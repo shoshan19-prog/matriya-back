@@ -95,13 +95,18 @@ aspirations.
    knowledge gap must surface that gap to the Learning Priority Engine, closing
    the loop between *deciding* and *learning*.
 10. **Engines are stateless and contract-bound (Plug & Play).** Every engine
-    satisfies the same **Engine Contract** (name, purpose, consumes, produces,
-    confidence, latency, cost, dependencies, failure modes) and is *stateless*:
-    `Input → Output`, knowing nothing about who called it or what runs next. The
-    management layer never hard-codes a list of engines — it runs anything that
-    satisfies the contract. This is the precondition for the Composer, and it is
-    what lets the engine set grow from 27 to 60 without touching the decision
-    layer. **Define the contract before the conductor.**
+    satisfies the same **Engine Contract** and is *stateless*: `Input → Output`,
+    knowing nothing about who called it or what runs next. The management layer
+    never hard-codes a list of engines — it runs anything that satisfies the
+    contract. The contract declares not only I/O but the **quality of thinking**:
+    a *reasoning signature* (what the confidence means), *state changes* (pure vs.
+    stateful), a *capability vector* (observe/explain/predict/recommend/generate/
+    validate/learn), and a *transformation*. **Define the contract before the
+    conductor.** (See `docs/engine-contract/`.)
+11. **An engine is defined by what it transforms, not by what it is.**
+    `Input → Transformation → Output`, never `Module → Output`. This reframes the
+    platform from "a collection of services" into "a collection of
+    transformations" — the property that makes composition meaningful.
 
 ---
 
@@ -426,9 +431,31 @@ by the guardrails above (nothing rendered may outrun its provenance):
   (Engine 22); contradictory mechanisms (hydrophobic vs. hydrophilic) render as
   wave interference, flagging a paradox for team discussion. (Internal-domain and
   people data — governed by Principle 5 and access control.)
+- **Reference Frame — no absolute values.** Never show a number without "relative
+  to what". Every value/recommendation/chart declares its reference (current
+  product, previous version, best Fresco formula, competitor, industry benchmark,
+  literature, patent, regulatory minimum, customer target, future goal). Switching
+  the reference reorganizes the whole view around the new centre — *the data
+  doesn't change, its meaning does.* (Could graduate into a normative display
+  principle, not just UX.)
+- **Value Field — no single "best".** The user weights goals (fire, cost,
+  sustainability, application ease, durability, speed) *before* analysis; the same
+  formulation is ★★★★★ by fire and ★★☆☆☆ by cost. The UX face of Engines 18
+  (Pareto) + 21 (Trade-off): reveal trade-offs, never hide them.
+- **Decision Horizon — consequences before they happen.** Every change emits a
+  visible consequence field propagating through performance/cost/workability/
+  durability/risk. The UX face of the Interface Network/Physics (20/30): show
+  consequences, not just results.
 
-These raise the bar for the *visualization* engines specifically; they do not
-change any engine's contract or the knowledge model.
+**Guiding meta-principle:** *"Do not design screens. Design scientific
+perception."* Every component must strengthen at least one of the researcher's
+four capabilities — **See · Understand · Predict · Decide** — or it earns no
+place. This maps 1:1 to the engine **Capability Vector** (observe→See,
+explain→Understand, predict→Predict, recommend/validate→Decide), so the same
+filter governs both engines and the perception layer.
+
+These raise the bar for the *visualization/perception* layer specifically; they
+do not change any engine's contract or the knowledge model.
 
 ---
 
