@@ -55,7 +55,7 @@ never would. **v1.0 was not a general model; v1.1, so far, is.**
 | 3 | Reversibility | present on every transition | ✅ |
 | 4 | Unknown Handling | unknown ⇒ null toState + Gap{cost,impact,priority} | ✅ |
 | 5 | Transition Status | all 7 represented | ✅ |
-| 6 | Invariant Testing | no un-excepted violation (conservation of mass) | ✅ |
+| 6 | Invariant Testing | no un-excepted violation across **all 5** invariants | ✅ |
 | 7 | State Space Coverage | ≥ 30% of material×category cells | ✅ (48%) |
 | 8 | Transition Entropy | average < 0.5 | ✅ (0.241) |
 
@@ -73,14 +73,31 @@ The name follows the substance: it does not model a *material*, it models
 **behaviour** — Matter + Energy + Environment + Time — hence **Material Behavior
 Model (MBM)**.
 
-## Honest limits (this suite, v1.0)
+## Invariant Suite — all 5 now auto-checked
 
-- Invariant checking auto-verifies **conservation_of_mass** concretely; the other
-  four (entropy monotonicity, causality, equivalence, continuity) are declared in
-  the ontology and enforced structurally (a transition must declare an exception
-  to violate one), but are not yet each auto-computed — a suite-v1.1 item.
+`npm run test:mbm-invariants` (also run inside D6) auto-verifies every invariant,
+with a documented operational definition for each. Each check was **verified to
+bite** by a negative test (tamper a fixture → the check fires):
+
+| Invariant | Operational check | Negative test |
+|-----------|-------------------|---------------|
+| conservation_of_mass | `mass ↓/↑` in resultingProperties ⇒ must declare an exception | remove exception → CAUGHT |
+| entropy_monotonicity | spontaneous (irreversible + observed/replicated/mechanism_supported) **ordering** (network/crystallisation/`entropy ↓`) ⇒ must account for energy or declare an exception | remove exception → CAUGHT |
+| causality | the irreversible-edge graph must be **acyclic** (reversible/conditional edges excluded) | add an irreversible cycle → CAUGHT; a reversible back-edge is correctly ignored |
+| equivalence | no two state ids share a `(material, state)` identity; identity-preserving transitions must be reversible | add a duplicate identity → CAUGHT |
+| continuity | a real transition must be a phase change **or** carry a mechanism **or** declare an exception (no unexplained jump) | null a mechanism → CAUGHT |
+
+The model now rejects non-physical transition paths *before* any real data is
+ingested — the instrument is calibrated before the measurement.
+
+## Honest limits
+
+- The checks are **heuristic by design** (structural physical consistency, not
+  full thermodynamics): e.g. entropy is checked as "spontaneous ordering must
+  account for energy or declare an exception", not by computing ΔS. Each
+  operational definition is stated above and in `scripts/mbm-invariants.mjs`.
 - Fixtures are **illustrative** (placeholder provenance); the suite tests the
   *representation's* generality, not sourced chemistry. Real evidence comes via
-  ingestion.
+  ingestion (step b).
 - Coverage is measured over the 5 test families; a production State Space defines
   its own space.

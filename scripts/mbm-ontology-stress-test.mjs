@@ -12,6 +12,7 @@
 import { readFileSync } from 'fs';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
+import { checkInvariants } from './mbm-invariants.mjs';
 
 const __dir = dirname(fileURLToPath(import.meta.url));
 const rd = (p) => JSON.parse(readFileSync(join(__dir, '..', 'docs', 'material-state', p), 'utf8'));
@@ -69,11 +70,12 @@ const present = new Set(fx.transitions.map((t) => t.status));
 const missing = STATUSES.filter((s) => !present.has(s));
 dim('D5 Transition Status — all 7 statuses represented', missing.length === 0, missing.length ? `missing: ${missing}` : STATUSES.join(', '));
 
-// D6 — Invariant Testing: any 'mass ↓' must declare a conservation_of_mass exception
-const massViolators = fx.transitions.filter((t) => (t.resultingProperties || []).some((p) => /mass\s*↓/.test(p))
-  && !(t.invariantExceptions || []).some((x) => x.invariant === 'conservation_of_mass'));
-dim('D6 Invariant Testing — no un-excepted invariant violation (conservation_of_mass)', massViolators.length === 0,
-  massViolators.length ? `inconsistent: ${massViolators.map((t) => t.id)}` : 'mass-loss transitions all declare an exception');
+// D6 — Invariant Testing: ALL 5 invariants auto-checked (via the shared suite)
+const inv = checkInvariants(fx);
+const invBad = inv.results.filter((r) => !r.ok);
+dim('D6 Invariant Testing — all 5 invariants (mass, entropy, causality, equivalence, continuity)', inv.allOk,
+  inv.allOk ? inv.results.map((r) => r.invariant).join(', ') + ' — all respected'
+    : 'violations: ' + invBad.map((r) => `${r.invariant}[${r.violations.join('; ')}]`).join(' | '));
 
 // D7 — State Space Coverage (real families only; >= 30%)
 const realTx = fx.transitions.filter((t) => t.status !== 'unknown' && t.status !== 'impossible');
