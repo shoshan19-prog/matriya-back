@@ -29,7 +29,7 @@
       "description": "ordered event sequence — the Failure Pattern Engine mines recurring sub-sequences across cases.",
       "items": { "type": "string" }
     },
-    "evidenceQuality": { "enum": ["instruments", "scientific_paper", "patent", "field_report", "anecdotal", "illustrative"] },
+    "evidenceQuality": { "enum": ["instruments", "standard", "scientific_paper", "patent", "field_report", "anecdotal", "illustrative"] },
     "rootCause": {
       "type": "object",
       "additionalProperties": false,
@@ -68,7 +68,11 @@
       "required": ["source", "flag"],
       "properties": {
         "source": { "type": "string", "description": "where this came from; for pilot cases a domain-standard reference class, not a fabricated citation." },
-        "flag": { "enum": ["illustrative", "sourced"], "description": "illustrative = standard/textbook failure mode used for the pilot; sourced = a specific provenance-bound document (ingestion era)." }
+        "flag": { "enum": ["illustrative", "sourced"], "description": "illustrative = standard/textbook failure mode used for the pilot; sourced = a specific provenance-bound reference (grounding era)." },
+        "date": { "type": ["string", "null"], "description": "edition/publication year of the source (see datePrecision)." },
+        "sourceType": { "enum": ["standard", "scientific_paper", "patent", "technical_report", "field_report", "textbook", null] },
+        "datePrecision": { "type": ["string", "null"], "description": "honesty about the date — e.g. 'edition confirmed at ingestion (human-in-the-loop)'." },
+        "verifiability": { "type": ["string", "null"], "description": "what makes the source checkable, e.g. 'public standard designation'." }
       }
     }
   }

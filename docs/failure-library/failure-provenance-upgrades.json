@@ -1,0 +1,83 @@
+{
+  "apiVersion": "failure-library/provenance/v1",
+  "note": "Evidence Upgrade overlay: grounds 7 of the 16 pilot cases in REAL, verifiable public STANDARD designations (ASTM/ISO/EN) that document exactly these failure/measurement modes. Deliberately NOT fabricated primary-literature citations (no invented DOIs/authors). The chemistry is UNCHANGED — only provenance and evidenceQuality are added. Exact standard editions are marked for human-in-the-loop confirmation at ingestion; the standard DESIGNATIONS themselves are stable public identifiers. This tests whether the engine's yields survive illustrative -> grounded.",
+  "upgrades": {
+    "fail_app_premature_acid": {
+      "evidenceQuality": "standard",
+      "provenance": {
+        "source": "EN 13381-8 (contribution to fire resistance of structural members — applied reactive/intumescent protection); ISO 834 standard fire curve",
+        "sourceType": "standard",
+        "date": "2013",
+        "datePrecision": "representative edition; exact revision confirmed at ingestion (human-in-the-loop)",
+        "verifiability": "public standard designation",
+        "flag": "sourced"
+      }
+    },
+    "fail_acrylic_uv_chalking": {
+      "evidenceQuality": "standard",
+      "provenance": {
+        "source": "ISO 4628-6 (evaluation of degradation — chalking, tape method); ASTM G154 (fluorescent UV exposure)",
+        "sourceType": "standard",
+        "date": "2011",
+        "datePrecision": "representative edition; exact revision confirmed at ingestion (human-in-the-loop)",
+        "verifiability": "public standard designation",
+        "flag": "sourced"
+      }
+    },
+    "fail_concrete_carbonation_corrosion": {
+      "evidenceQuality": "standard",
+      "provenance": {
+        "source": "EN 13295 (carbonation resistance of concrete repair products); ASTM C876 (half-cell corrosion potentials of reinforcing steel)",
+        "sourceType": "standard",
+        "date": "2004",
+        "datePrecision": "representative edition; exact revision confirmed at ingestion (human-in-the-loop)",
+        "verifiability": "public standard designation",
+        "flag": "sourced"
+      }
+    },
+    "fail_concrete_sulfate_attack": {
+      "evidenceQuality": "standard",
+      "provenance": {
+        "source": "ASTM C1012 (length change of hydraulic-cement mortars exposed to a sulfate solution)",
+        "sourceType": "standard",
+        "date": "1984",
+        "datePrecision": "representative edition; exact revision confirmed at ingestion (human-in-the-loop)",
+        "verifiability": "public standard designation",
+        "flag": "sourced"
+      }
+    },
+    "fail_concrete_asr": {
+      "evidenceQuality": "standard",
+      "provenance": {
+        "source": "ASTM C1260 (potential alkali reactivity of aggregates — mortar-bar method)",
+        "sourceType": "standard",
+        "date": "1994",
+        "datePrecision": "representative edition; exact revision confirmed at ingestion (human-in-the-loop)",
+        "verifiability": "public standard designation",
+        "flag": "sourced"
+      }
+    },
+    "fail_polymer_osmotic_blister": {
+      "evidenceQuality": "standard",
+      "provenance": {
+        "source": "ASTM D714 (degree of blistering of paints); ISO 4628-2 (blistering, quantity and size)",
+        "sourceType": "standard",
+        "date": "1956",
+        "datePrecision": "classic designation; exact revision confirmed at ingestion (human-in-the-loop)",
+        "verifiability": "public standard designation",
+        "flag": "sourced"
+      }
+    },
+    "fail_polymer_humidity_adhesion": {
+      "evidenceQuality": "standard",
+      "provenance": {
+        "source": "ASTM D4541 (pull-off strength of coatings); ISO 2115 (polymer dispersions — white-point / minimum film-formation temperature)",
+        "sourceType": "standard",
+        "date": "1996",
+        "datePrecision": "representative edition; exact revision confirmed at ingestion (human-in-the-loop)",
+        "verifiability": "public standard designation",
+        "flag": "sourced"
+      }
+    }
+  }
+}

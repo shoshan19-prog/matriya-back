@@ -17,7 +17,7 @@ const mbm = JSON.parse(readFileSync(join(__dir, '..', 'docs', 'material-state', 
 
 const DOMAINS = ['intumescent', 'silicate', 'cementitious', 'polymer'];
 const OUTCOMES = ['failure', 'near_failure'];
-const EVIDENCE = ['instruments', 'scientific_paper', 'patent', 'field_report', 'anecdotal', 'illustrative'];
+const EVIDENCE = ['instruments', 'standard', 'scientific_paper', 'patent', 'field_report', 'anecdotal', 'illustrative'];
 const ROOT = ['known', 'suspected', 'unknown'];
 const INVARIANTS = ['conservation_of_mass', 'entropy_monotonicity', 'causality', 'equivalence', 'continuity'];
 
