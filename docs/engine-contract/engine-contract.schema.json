@@ -1,8 +1,8 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://matriya.example/schemas/engine-contract/v0.3.json",
+  "$id": "https://matriya.example/schemas/engine-contract/v1.0.json",
   "title": "MATRIYA Engine Contract",
-  "description": "Manifest that every Industrial Intelligence Platform engine MUST publish. It is a self-describing declaration — NOT runtime code and NOT an orchestrator. An engine that validates against this schema can be composed as a plug-and-play module. DRAFT v0.3 — folds in the three refinements found by stress-testing retrieval/causal/generative engines: F1 evidential+inductive reasoning classes; F2 retrySafe/idempotencyKey for stateful engines; F3 a hypothesis safety envelope (outputEpistemics) that STRUCTURALLY forbids presenting generated/unvalidated output as fact. GOVERNING RULE: the contract does not weaken to fit an engine — if an engine cannot be represented without relaxing these safety boundaries, that is a contract failure to REPORT, not an engine to force in. Documentation only; no runtime behaviour is implied or changed.",
+  "description": "STABLE v1.0. Manifest that every Industrial Intelligence Platform engine MUST publish — a self-describing declaration, NOT runtime code and NOT an orchestrator. An engine that validates against this schema can be composed as a plug-and-play module. v1.0 = v0.3 (evidential/inductive reasoning classes; retrySafe/idempotencyKey; the outputEpistemics hypothesis safety envelope) plus two final decisions: (D1) change.recordsProducedArtifact — the produced artifact and the appended artifact may be one and the same; (D2) reproducibility — deterministic:false engines must declare whether/how a seed makes runs repeatable. GOVERNING RULE: the contract does not weaken to fit an engine — if an engine cannot be represented without relaxing its safety boundaries, that is a contract failure to REPORT, not an engine to force in. Documentation only; no runtime behaviour is implied or changed. This standard is frozen; future engines conform to it rather than the reverse.",
   "type": "object",
   "additionalProperties": false,
   "required": [
@@ -30,7 +30,7 @@
   "properties": {
     "apiVersion": {
       "description": "Contract format version. Pins the manifest to a schema revision.",
-      "const": "engine-contract/v0.3"
+      "const": "engine-contract/v1.0"
     },
     "name": {
       "description": "Stable, unique engine id (kebab-case, dot-namespaced allowed).",
@@ -81,6 +81,16 @@
     "idempotencyKey": {
       "description": "v0.3 F2. How repeated calls with the same input are de-duplicated so a retry does not double-apply the effect (e.g. 'hash(claim + sorted sourceIds)'). Required when purity=stateful and retrySafe=true.",
       "type": ["string", "null"]
+    },
+    "reproducibility": {
+      "description": "v1.0 D2. For engines that are `deterministic: false` (sampling, ANN ordering, generative search): declares whether a seed makes runs repeatable. Required when deterministic=false (schema rule below).",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["seeded"],
+      "properties": {
+        "seeded": { "type": "boolean", "description": "True if supplying a seed makes the output repeatable." },
+        "seedParam": { "type": ["string", "null"], "description": "Which input field carries the seed (e.g. 'constraints.seed'), or null if the engine is not seedable." }
+      }
     },
     "transformation": {
       "description": "An engine is defined by what it TRANSFORMS, not by what it is. Declares Input -> Transformation -> Output so the platform is a set of transformations, not a bag of services.",
@@ -324,6 +334,16 @@
           }
         }
       }
+    },
+    {
+      "$comment": "v1.0 D2 — a non-deterministic engine must declare its reproducibility (whether a seed makes runs repeatable), so the Composer/audit trail is never silently unrepeatable.",
+      "if": {
+        "properties": { "deterministic": { "const": false } },
+        "required": ["deterministic"]
+      },
+      "then": {
+        "required": ["reproducibility"]
+      }
     }
   ],
   "$defs": {
@@ -343,6 +363,10 @@
         "domain": {
           "description": "Which knowledge domain the change lands in (separation rule).",
           "enum": ["external", "internal", "hypothesis"]
+        },
+        "recordsProducedArtifact": {
+          "description": "v1.0 D1. True when this change persists the SAME logical artifact the engine returns in `produces` (e.g. the Knowledge Event is both returned and appended). Lets the Composer know the append is not a second, hidden output.",
+          "type": "boolean"
         }
       }
     },

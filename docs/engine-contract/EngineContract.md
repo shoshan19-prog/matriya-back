@@ -1,6 +1,20 @@
-# MATRIYA Engine Contract — DRAFT v0.3
+# MATRIYA Engine Contract — v1.0 (STABLE)
 
-> **Governing rule (v0.3).** *The contract does not weaken to fit an engine.* If an
+> **v1.0 is stamped and frozen.** It has been stress-tested against all three
+> reasoning modes (retrieval / evidential / generative) and refuses to weaken its
+> epistemic boundaries. Future engines conform to this standard rather than the
+> reverse. The next step is the first implementation (G7 `runSearch(input, ctx)
+> → Result`) — deferred until explicitly approved; **nothing is built yet.**
+>
+> **v1.0 = v0.3 + two final decisions:**
+> - **D1 `change.recordsProducedArtifact`** — the produced artifact and the
+>   appended artifact may be the same logical thing (Knowledge Event returns *and*
+>   appends the event). The Composer is told the append is not a hidden second output.
+> - **D2 `reproducibility`** — a `deterministic: false` engine MUST declare whether
+>   a seed makes runs repeatable (schema-enforced). Combination Discovery is now
+>   seedable (`constraints.seed`); Search/Knowledge Event declare `seeded: false`.
+
+> **Governing rule.** *The contract does not weaken to fit an engine.* If an
 > engine cannot be represented without relaxing a safety boundary, that is a
 > **contract failure to report — not an engine to force in.** In particular:
 > **a generated candidate = a hypothesis awaiting validation — never knowledge,
@@ -63,14 +77,16 @@ Formal schema: [`engine-contract.schema.json`](./engine-contract.schema.json)
 
 | Field | Meaning |
 |-------|---------|
-| `apiVersion` | Pins the manifest to a contract revision (`engine-contract/v0.3`). |
+| `apiVersion` | Pins the manifest to a contract revision (`engine-contract/v1.0`). |
 | `name`, `version`, `purpose`, `category` | Identity. |
 | `stateless` | MUST be `true`. |
+| `deterministic` | If `false`, `reproducibility` is required (D2). |
 | `purity` | `pure` / `stateful` — see State Changes below. |
 | `sideEffects` | `none` / `read` / `write`. |
-| `changes[]` | Shared state the engine mutates (empty = pure). |
-| `retrySafe`, `idempotencyKey` | v0.3 (F2). Retry safety; stateful+retrySafe requires a dedup key. |
-| `outputEpistemics` | v0.3 (F3). Hypothesis safety envelope — `outputClass`, `neverAssertsAs`, `validationGating`. |
+| `changes[]` | Shared state the engine mutates (empty = pure); `recordsProducedArtifact` marks produced==appended (D1). |
+| `retrySafe`, `idempotencyKey` | (F2). Retry safety; stateful+retrySafe requires a dedup key. |
+| `reproducibility` | (D2). `{ seeded, seedParam }` for non-deterministic engines. |
+| `outputEpistemics` | (F3). Hypothesis safety envelope — `outputClass`, `neverAssertsAs`, `validationGating`. |
 | `transformation` | The Input→Output transformation the engine *is*. |
 | `consumes[]`, `produces[]` | Typed ports (`type`, `cardinality`, `schema`/`schemaRef`, `required`). |
 | `reasoning` | Reasoning Signature — what the confidence *means*. |
@@ -239,15 +255,17 @@ declaring candidates `asserted`, dropping the fact/recommendation guard, and
 self-validating — and **all three were rejected**. The contract reports the
 failure; it does not absorb it.
 
-### Still open (deferred, minor — for a future revision)
+### Resolved at v1.0 (both prior deferrals decided)
 
-- **F3-orig** — mark when a produced artifact *is* the appended artifact (event
-  returned == event appended). Cosmetic; no safety impact.
-- **F6** — generation-bounds are captured in the generative *payload*
-  (`generationBounds`), but a reproducibility **seed** for `deterministic: false`
-  engines is not yet a manifest field.
+- **D1** (was F3-orig) — `change.recordsProducedArtifact` marks when the appended
+  artifact *is* the produced one. Applied to Knowledge Event.
+- **D2** (was F6) — `reproducibility { seeded, seedParam }`, required whenever
+  `deterministic: false` (schema rule). Combination Discovery is seedable via
+  `constraints.seed`; Search and Knowledge Event declare `seeded: false`.
 
-**Status:** the contract has now been exercised across retrieval / evidential /
-generative and hardened for safety. This is the natural point to promote v0.3 →
-**v1.0** once the two deferred items are decided. Implementation stays deferred —
-nothing is built; no `runSearch()`.
+**Status: v1.0 stamped & frozen.** Exercised across retrieval / evidential /
+generative, hardened for safety, and the two open decisions are made. The
+standard is stable; new engines conform to it. Implementation stays deferred —
+nothing is built; no `runSearch()`. The next engineering step, on approval, is
+**G7**: extract a pure `runSearch(input, ctx) → Result` so Search becomes the
+first engine that actually *runs* under the contract.

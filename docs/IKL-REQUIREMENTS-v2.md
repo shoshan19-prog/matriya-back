@@ -245,6 +245,33 @@ as extensions, reserve 26 for last, treat 27/28 as rendering layers and 29 as a
 memory traversal, and treat 30 as the substrate that Engine 20 grows into (not a
 new silo).
 
+### Frozen backlog — Discovery Perturbation family (not in the active count)
+
+The engine list is **frozen at ~30** (strategic decision: harden the three
+assets, don't keep adding engines). These captured ideas extend Engine 16
+(Combination Discovery) into *controlled perturbation* — the thesis that real
+novelty comes from disciplined disturbance, not optimization, with each "noise"
+calibrated by ΔK, knowledge distance and validation cost. They are recorded here,
+**not activated**, and — being generative — would inherit the Engine Contract's
+hypothesis safety envelope (outputs are hypotheses, never facts):
+
+- **Epistemic Frame-Shifter** — perturbs the *problem definition*: reframes
+  "increase plaster hydrophobicity" as chemical / physical / thermodynamic /
+  biological frames. Metric: **Semantic Distance** (embedding gap) + Paradigm Gap;
+  classifies output TRANSFER vs NOVEL. High ΔK (opens whole fields).
+- **Gradient & Asymmetry Forge** — perturbs *spatial/temporal homogeneity*:
+  deliberate gradients (concentration, energy, coverage) instead of uniform mixes.
+  Metric: **Heterogeneity Index** (0=uniform..1=max gradient) + incremental
+  production cost. Prefers cases where validation is cheap (fast spectroscopy).
+- **Catastrophe Inversion Engine** — perturbs *thinking direction*: enumerate sure
+  ways to fail, then invert each into a design requirement (shrink-on-fire →
+  timed-expansion). Metric: **Failure Severity** + **Invertibility Score**; nearly
+  always NOVEL, and cheap to validate (failure tests are cheap).
+
+If activated later, they slot under the Innovation Layer (13) + Combination
+Discovery (16), share the Learning Priority Engine (19) for ΔK ranking, and are
+governed by Principle 4 (nothing auto-validates) and the contract safety envelope.
+
 ## II.1 Confidence Engine
 
 **Status: 🟡 FITS ARCH.** Confidence is *stored* today; the engine that

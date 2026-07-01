@@ -1,5 +1,5 @@
 {
-  "apiVersion": "engine-contract/v0.3",
+  "apiVersion": "engine-contract/v1.0",
   "name": "knowledge-event",
   "displayName": "Knowledge Event Engine (Continuous Learning Loop)",
   "version": "0.1.0-draft",
@@ -13,11 +13,16 @@
     {
       "target": "knowledge-ledger",
       "effect": "append",
-      "domain": "hypothesis"
+      "domain": "hypothesis",
+      "recordsProducedArtifact": true
     }
   ],
   "retrySafe": true,
   "idempotencyKey": "hash(claim + sorted(sourceIds) + evidenceType)",
+  "reproducibility": {
+    "seeded": false,
+    "seedParam": null
+  },
   "outputEpistemics": {
     "outputClass": "hypothesis",
     "emitsUnvalidated": true,

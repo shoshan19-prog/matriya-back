@@ -1,5 +1,5 @@
 {
-  "apiVersion": "engine-contract/v0.3",
+  "apiVersion": "engine-contract/v1.0",
   "name": "combination-discovery",
   "displayName": "Combination Discovery / Virtual Formulation Engine (Engine 16)",
   "version": "0.1.0-draft",
@@ -12,6 +12,10 @@
   "changes": [],
   "retrySafe": true,
   "idempotencyKey": null,
+  "reproducibility": {
+    "seeded": true,
+    "seedParam": "constraints.seed"
+  },
   "outputEpistemics": {
     "outputClass": "hypothesis",
     "emitsUnvalidated": true,
@@ -70,7 +74,8 @@
           "allowedMaterials": { "type": "array", "items": { "type": "string" }, "description": "If set, candidates draw only from these (e.g. Fresco inventory)." },
           "bannedMaterials": { "type": "array", "items": { "type": "string" } },
           "regulatory": { "type": "array", "items": { "type": "string" }, "description": "e.g. REACH, low-VOC, marine-climate suitability." },
-          "geoContext": { "type": "string" }
+          "geoContext": { "type": "string" },
+          "seed": { "type": ["integer", "null"], "description": "v1.0 D2 reproducibility seed — same seed + same KB snapshot reproduces the candidate set." }
         }
       }
     }

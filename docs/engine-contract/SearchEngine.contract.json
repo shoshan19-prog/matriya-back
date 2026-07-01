@@ -1,5 +1,5 @@
 {
-  "apiVersion": "engine-contract/v0.3",
+  "apiVersion": "engine-contract/v1.0",
   "name": "ikl-search",
   "displayName": "Industrial Search (Engine 1)",
   "version": "0.1.0",
@@ -12,6 +12,10 @@
   "changes": [],
   "retrySafe": true,
   "idempotencyKey": null,
+  "reproducibility": {
+    "seeded": false,
+    "seedParam": null
+  },
   "outputEpistemics": {
     "outputClass": "asserted",
     "emitsUnvalidated": false,
