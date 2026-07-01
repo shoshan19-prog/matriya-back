@@ -1,0 +1,54 @@
+{
+  "apiVersion": "material-state/v1.1",
+  "_note": "Ontology Validation Suite fixtures — a deliberate falsification attempt across 5 driver families + coupled drivers + unknown + impossible + all 7 statuses. ILLUSTRATIVE: thresholds/values are placeholders (documentType='illustrative'); the point is structural coverage, not sourced chemistry.",
+  "states": [
+    { "id": "epoxy:glassy", "material": "epoxy", "state": "glassy", "phase": "glass", "provenance": { "documentType": "illustrative" }, "confidence": 0.2 },
+    { "id": "epoxy:rubbery", "material": "epoxy", "state": "rubbery", "phase": "amorphous", "provenance": { "documentType": "illustrative" }, "confidence": 0.2 },
+    { "id": "epoxy:degraded", "material": "epoxy", "state": "degraded", "provenance": { "documentType": "illustrative" }, "confidence": 0.2 },
+    { "id": "epoxy:char", "material": "epoxy", "state": "char", "phase": "solid", "provenance": { "documentType": "illustrative" }, "confidence": 0.2 },
+    { "id": "silane:monomer", "material": "silane", "state": "monomer", "phase": "liquid", "provenance": { "documentType": "illustrative" }, "confidence": 0.2 },
+    { "id": "silane:hydrolyzed", "material": "silane", "state": "hydrolyzed", "provenance": { "documentType": "illustrative" }, "confidence": 0.2 },
+    { "id": "silane:siloxane_network", "material": "silane", "state": "siloxane_network", "phase": "network", "provenance": { "documentType": "illustrative" }, "confidence": 0.2 },
+    { "id": "silane:photo_degraded", "material": "silane", "state": "photo_degraded", "provenance": { "documentType": "illustrative" }, "confidence": 0.2 },
+    { "id": "concrete:intact", "material": "concrete", "state": "intact", "phase": "solid", "provenance": { "documentType": "illustrative" }, "confidence": 0.2 },
+    { "id": "concrete:microcracked", "material": "concrete", "state": "microcracked", "provenance": { "documentType": "illustrative" }, "confidence": 0.2 },
+    { "id": "concrete:fractured", "material": "concrete", "state": "fractured", "provenance": { "documentType": "illustrative" }, "confidence": 0.2 },
+    { "id": "concrete:carbonated", "material": "concrete", "state": "carbonated", "provenance": { "documentType": "illustrative" }, "confidence": 0.2 },
+    { "id": "acrylic:pristine", "material": "acrylic", "state": "pristine", "provenance": { "documentType": "illustrative" }, "confidence": 0.2 },
+    { "id": "acrylic:scissioned", "material": "acrylic", "state": "scissioned", "provenance": { "documentType": "illustrative" }, "confidence": 0.2 },
+    { "id": "acrylic:yellowed", "material": "acrylic", "state": "yellowed", "provenance": { "documentType": "illustrative" }, "confidence": 0.2 },
+    { "id": "steel:passive", "material": "steel", "state": "passive", "phase": "solid", "provenance": { "documentType": "illustrative" }, "confidence": 0.2 },
+    { "id": "steel:active", "material": "steel", "state": "active", "provenance": { "documentType": "illustrative" }, "confidence": 0.2 },
+    { "id": "steel:rust", "material": "steel", "state": "rust", "provenance": { "documentType": "illustrative" }, "confidence": 0.2 },
+    { "id": "steel:scc_cracked", "material": "steel", "state": "scc_cracked", "provenance": { "documentType": "illustrative" }, "confidence": 0.2 },
+    { "id": "glass:solid", "material": "glass", "state": "solid", "phase": "glass", "provenance": { "documentType": "illustrative" }, "confidence": 0.2 },
+    { "id": "glass:molten", "material": "glass", "state": "molten", "phase": "liquid", "provenance": { "documentType": "illustrative" }, "confidence": 0.2 },
+    { "id": "polymerX:stateA", "material": "polymerX", "state": "stateA", "provenance": { "documentType": "illustrative" }, "confidence": 0.2 }
+  ],
+  "transitions": [
+    { "id": "thermal_1", "fromState": "epoxy:glassy", "toState": "epoxy:rubbery", "drivers": ["temperature"], "reversibility": "reversible", "status": "observed", "entropy": 0.1, "mechanism": "glass transition", "resultingProperties": ["modulus ↓"], "evidence": [{ "documentType": "illustrative" }], "confidence": 0.7 },
+    { "id": "thermal_2", "fromState": "epoxy:rubbery", "toState": "epoxy:degraded", "drivers": ["temperature"], "reversibility": "irreversible", "status": "mechanism_supported", "entropy": 0.2, "mechanism": "chain scission", "resultingProperties": ["mass ↓", "volatiles released"], "invariantExceptions": [{ "invariant": "conservation_of_mass", "justification": "volatiles leave to the gas phase; mass conserved across phases" }], "evidence": [{ "documentType": "illustrative" }], "confidence": 0.6 },
+    { "id": "thermal_3", "fromState": "epoxy:degraded", "toState": "epoxy:char", "drivers": ["temperature"], "reversibility": "irreversible", "status": "mechanism_supported", "entropy": 0.25, "mechanism": "carbonization", "resultingProperties": ["mass ↓", "char yield ↑", "thermal conductivity ↓"], "invariantExceptions": [{ "invariant": "conservation_of_mass", "justification": "mass lost as evolved gases" }], "evidence": [{ "documentType": "illustrative" }], "confidence": 0.5 },
+
+    { "id": "hydro_1", "fromState": "silane:monomer", "toState": "silane:hydrolyzed", "drivers": ["humidity"], "reversibility": "irreversible", "status": "observed", "entropy": 0.15, "mechanism": "hydrolysis", "evidence": [{ "documentType": "illustrative" }], "confidence": 0.65 },
+    { "id": "hydro_2", "fromState": "silane:hydrolyzed", "toState": "silane:siloxane_network", "drivers": ["humidity", "time"], "reversibility": "irreversible", "status": "replicated", "entropy": 0.05, "mechanism": "condensation", "resultingProperties": ["network formation", "hydrophobicity ↑"], "evidence": [{ "documentType": "illustrative" }, { "documentType": "illustrative" }], "confidence": 0.8 },
+
+    { "id": "mech_1", "fromState": "concrete:intact", "toState": "concrete:microcracked", "drivers": ["mechanical_stress"], "reversibility": "conditional", "status": "observed", "entropy": 0.2, "mechanism": "tensile microcracking", "evidence": [{ "documentType": "illustrative" }], "confidence": 0.6 },
+    { "id": "mech_2", "fromState": "concrete:microcracked", "toState": "concrete:fractured", "drivers": ["mechanical_stress"], "reversibility": "irreversible", "status": "mechanism_supported", "entropy": 0.2, "mechanism": "crack propagation", "evidence": [{ "documentType": "illustrative" }], "confidence": 0.55 },
+    { "id": "mech_3_coupled", "fromState": "concrete:intact", "toState": "concrete:carbonated", "drivers": ["chemical_agent", "humidity"], "reversibility": "irreversible", "status": "observed", "entropy": 0.2, "mechanism": "carbonation", "resultingProperties": ["pH ↓", "porosity change"], "evidence": [{ "documentType": "illustrative" }], "confidence": 0.6 },
+
+    { "id": "photo_1", "fromState": "acrylic:pristine", "toState": "acrylic:scissioned", "drivers": ["uv"], "reversibility": "irreversible", "status": "mechanism_supported", "entropy": 0.25, "mechanism": "Norrish chain scission", "resultingProperties": ["molecular weight ↓"], "evidence": [{ "documentType": "illustrative" }], "confidence": 0.55 },
+    { "id": "photo_2_coupled", "fromState": "acrylic:scissioned", "toState": "acrylic:yellowed", "drivers": ["uv", "time"], "reversibility": "irreversible", "status": "observed", "entropy": 0.15, "mechanism": "chromophore formation", "resultingProperties": ["yellowing index ↑"], "evidence": [{ "documentType": "illustrative" }], "confidence": 0.6 },
+
+    { "id": "electro_1_coupled", "fromState": "steel:passive", "toState": "steel:active", "drivers": ["ph", "humidity"], "reversibility": "conditional", "status": "mechanism_supported", "entropy": 0.2, "mechanism": "passive film breakdown", "evidence": [{ "documentType": "illustrative" }], "confidence": 0.6 },
+    { "id": "electro_2_coupled", "fromState": "steel:active", "toState": "steel:rust", "drivers": ["humidity", "chemical_agent"], "reversibility": "irreversible", "status": "observed", "entropy": 0.15, "mechanism": "electrochemical oxidation", "resultingProperties": ["volume ↑", "adhesion ↓"], "evidence": [{ "documentType": "illustrative" }], "confidence": 0.65 },
+    { "id": "electro_3_scc_triple", "fromState": "steel:passive", "toState": "steel:scc_cracked", "drivers": ["mechanical_stress", "humidity", "chemical_agent"], "reversibility": "irreversible", "status": "predicted", "entropy": 0.4, "mechanism": "stress corrosion cracking", "evidence": [], "confidence": 0.4 },
+
+    { "id": "hyp_1", "fromState": "silane:siloxane_network", "toState": "silane:photo_degraded", "drivers": ["uv"], "reversibility": "irreversible", "status": "hypothesized", "entropy": 0.5, "mechanism": "photo-oxidation (hypothesized)", "evidence": [], "confidence": 0.3 },
+
+    { "id": "unknown_1", "fromState": "polymerX:stateA", "toState": null, "drivers": ["uv", "humidity"], "reversibility": "unknown", "status": "unknown", "entropy": 1.0, "knowledgeGap": { "cost": "low", "impact": "high", "priority": 1 }, "evidence": [], "confidence": 0.0 },
+
+    { "id": "impossible_1", "fromState": "glass:solid", "toState": "glass:molten", "drivers": ["uv"], "reversibility": "irreversible", "status": "impossible", "entropy": 0.05, "impossibleReason": "UV photon energy cannot break the Si–O network or cause melting; no known mechanism", "evidence": [{ "documentType": "illustrative" }], "confidence": 0.7 },
+    { "id": "impossible_2", "fromState": "silane:monomer", "toState": "silane:hydrolyzed", "drivers": ["time"], "reversibility": "irreversible", "status": "impossible", "entropy": 0.05, "impossibleReason": "hydrolysis requires water; a dry atmosphere (time alone) provides no mechanism — contrast hydro_1 under humidity", "evidence": [{ "documentType": "illustrative" }], "confidence": 0.7 }
+  ]
+}

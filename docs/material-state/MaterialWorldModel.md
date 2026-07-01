@@ -1,7 +1,15 @@
-# MATRIYA Material World Model v1.0 (on paper)
+# MATRIYA Material World Model → Material Behavior Model (MBM)
 
 **Status: standard locked (docs only). No runtime code, no simulation, no engine
 execution.**
+
+> **Renamed & hardened.** After the falsification test (see
+> [`MBM-OntologyValidationSuite.md`](./MBM-OntologyValidationSuite.md)) the model
+> is now the **Material Behavior Model (MBM)** — it models *behaviour* (matter +
+> energy + environment + time), not a material — and the ontology/schema evolved
+> to **v1.1** (coupled `drivers[]`, 7-value `status`, unknown/impossible, 5
+> invariants, entropy). The framing below still holds; the schema references are
+> v1.1.
 
 This is the shift from *a system that retrieves information* to *a system that
 models how a material behaves*. Today knowledge flows `Documents → Embeddings →

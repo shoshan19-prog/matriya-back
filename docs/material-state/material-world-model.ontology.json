@@ -1,47 +1,72 @@
 {
-  "apiVersion": "material-world-model/v1.0",
-  "title": "Material World Model — Ontology",
-  "principle": "Everything in chemistry is a state transition. A material is defined not only by its composition, but by (1) which STATE it is in, (2) what DRIVER moves it to another state, and (3) the RESULT of that transition. Materials exist inside a State Space; documents/patents/TGA/DSC/FTIR/experiments are EVIDENCE that updates the model — they are not the model.",
-  "note": "This ontology defines the ENTITIES and RELATIONS of the world model. It comes BEFORE the State Schema (formal representation) and BEFORE the Transformation Engine (which acts on the model) — the same discipline as contract-before-engine. Documentation only.",
+  "apiVersion": "material-world-model/v1.1",
+  "title": "Material Behavior Model (MBM) — Ontology",
+  "renamedFrom": "Material World Model / Material State Space",
+  "principle": "Everything in chemistry is a state transition. The model does not describe a 'material' — it describes BEHAVIOUR: Matter + Energy + Environment + Time. A material is defined by (1) which STATE it is in, (2) what DRIVER(S) move it, and (3) the RESULT. Materials exist inside a State Space; documents/patents/TGA/DSC/FTIR/experiments are EVIDENCE that updates the model — not the model.",
+  "note": "v1.1 evolved under the Ontology Validation Suite (a deliberate falsification attempt across 5 driver families). v1.0 did NOT survive unchanged — see MBM-OntologyValidationSuite.md for what broke and why. Documentation only.",
   "entities": [
     {
       "id": "State",
-      "definition": "A distinct condition a material can be in. The unit of the world model.",
+      "definition": "A distinct condition a material can be in. The unit of the model.",
       "facets": ["material", "phase", "microstructure", "composition", "interfaces", "energy_state", "environment", "time", "properties", "confidence", "provenance"]
     },
     {
       "id": "Transition",
-      "definition": "A directed change from one State to another under a Driver, via a Mechanism.",
-      "facets": ["from_state", "driver", "mechanism", "activation_threshold", "transition_rate", "reversible", "energy", "resulting_properties", "evidence", "confidence", "to_state"]
+      "definition": "A directed change from one State to another under one or MORE Drivers, via a Mechanism.",
+      "facets": ["from_state", "drivers", "mechanism", "activation_threshold", "transition_rate", "reversibility", "energy", "resulting_properties", "status", "entropy", "invariant_exceptions", "evidence", "confidence", "to_state"]
     },
     {
       "id": "Driver",
-      "definition": "What moves a material between states.",
-      "values": ["temperature", "humidity", "pressure", "radiation", "uv", "electric_field", "mechanical_stress", "ph", "time"]
+      "definition": "What moves a material between states. Each belongs to exactly one category.",
+      "values": ["temperature", "humidity", "pressure", "radiation", "uv", "electric_field", "mechanical_stress", "ph", "chemical_agent", "time"],
+      "categories": {
+        "energy": ["temperature", "radiation", "uv", "electric_field"],
+        "mass": ["humidity"],
+        "mechanical": ["pressure", "mechanical_stress"],
+        "chemical": ["ph", "chemical_agent"],
+        "temporal": ["time"]
+      },
+      "note": "v1.1 finding: the proposed 4-category taxonomy (Energy/Mass/Chemical/Mechanical) had no home for `time`; a 5th category `temporal` was added. `time` is an exposure/kinetic driver, not a force/flux."
     },
-    { "id": "Mechanism", "definition": "The physical/chemical mechanism realising a transition.", "link": "IKL Layer 4 (Mechanisms)" },
-    { "id": "Interface", "definition": "A boundary between materials/phases/environment present in a state or created by a transition.", "link": "Interface Physics (Engine 20 / Engine 30)" },
-    { "id": "Property", "definition": "A measurable characteristic that changes across transitions (modulus, thermal conductivity, porosity, …)." },
-    { "id": "Evidence", "definition": "A source observation (document, patent, TGA/DSC/FTIR/XRD/SEM, experiment) that UPDATES a State or Transition. Not the model — the update to it.", "link": "IKL provenance (ikl_sources)" },
-    { "id": "Constraint", "definition": "A physical/chemical/process/economic/regulatory boundary a state or transition must respect.", "link": "Constraint Physics (Five-Space model)" },
-    { "id": "Law", "definition": "A validated, general transition rule — a Transition promoted to a Law through human-gated validation (FSCTM)." }
+    {
+      "id": "TransitionStatus",
+      "definition": "The epistemic status of a transition — how much we know it happens. One of seven.",
+      "values": ["observed", "replicated", "mechanism_supported", "predicted", "hypothesized", "unknown", "impossible"],
+      "note": "Replaces v1.0's binary isHypothesis. 'impossible' = no known mechanism (e.g. glass + uv -> melting). 'unknown' = State A -> ??? (a gap, not an answer)."
+    },
+    {
+      "id": "Invariant",
+      "definition": "A universal law every transition must respect regardless of material, unless it declares an Exception with justification.",
+      "values": ["conservation_of_mass", "entropy_monotonicity", "causality", "equivalence", "continuity"],
+      "note": "The model does not merely describe transitions — it CONSTRAINS them to be physically consistent. A violation without an Exception is flagged 'inconsistent'."
+    },
+    { "id": "KnowledgeGap", "definition": "Generated automatically from an 'unknown' transition. Carries cost / impact / priority so experiment planning is gap-driven.", "link": "Knowledge Gap Engine (22) / Learning Priority (19)" },
+    { "id": "Entropy", "definition": "Per-transition uncertainty 0..1 (0 = observed+replicated+mechanism-supported; 0.5 = hypothesis; 1 = unknown). Drives 'uncertainty clouds' in simulation and 'run an experiment instead of answering' when high." },
+    { "id": "Mechanism", "definition": "The physical/chemical mechanism realising a transition.", "link": "IKL Layer 4" },
+    { "id": "Interface", "definition": "A boundary present in a state or created by a transition.", "link": "Interface Physics (Engine 20/30)" },
+    { "id": "Property", "definition": "A measurable characteristic that changes across transitions." },
+    { "id": "Evidence", "definition": "A source observation (TGA/DSC/FTIR/XRD/SEM/patent/experiment) that UPDATES a State or Transition. Not the model — the update to it.", "link": "ikl_sources" },
+    { "id": "Constraint", "definition": "A physical/chemical/process/economic/regulatory boundary a state or transition must respect.", "link": "Constraint Physics" },
+    { "id": "Law", "definition": "A Transition validated into a general rule via human-gated validation (FSCTM)." }
   ],
   "relations": [
     { "from": "State", "type": "undergoes", "to": "Transition" },
-    { "from": "Transition", "type": "driven_by", "to": "Driver" },
+    { "from": "Transition", "type": "driven_by", "to": "Driver", "cardinality": "one_or_more" },
     { "from": "Transition", "type": "via", "to": "Mechanism" },
     { "from": "Transition", "type": "produces", "to": "State" },
-    { "from": "Transition", "type": "changes", "to": "Property" },
-    { "from": "State", "type": "has", "to": "Interface" },
+    { "from": "Transition", "type": "has_status", "to": "TransitionStatus" },
+    { "from": "Transition", "type": "must_respect", "to": "Invariant" },
+    { "from": "Transition", "type": "carries", "to": "Entropy" },
+    { "from": "Transition", "type": "when_unknown_generates", "to": "KnowledgeGap" },
     { "from": "Evidence", "type": "updates", "to": "State|Transition" },
     { "from": "Constraint", "type": "bounds", "to": "State|Transition" },
     { "from": "Transition", "type": "promoted_to", "to": "Law", "gate": "human_validated (FSCTM)" }
   ],
   "governance": [
-    "Provenance required — no invented chemistry (Principle 7): every State and Transition traces to Evidence.",
-    "Predicted/inferred transitions are HYPOTHESES until validated (Principle 4).",
+    "Provenance required for observed/replicated/mechanism_supported — no invented chemistry (Principle 7).",
+    "predicted/hypothesized/unknown transitions are NOT facts; unknown generates a KnowledgeGap, never an answer.",
+    "Every transition must respect the 5 Invariants unless it declares an Exception with justification.",
     "External/internal/hypothesis separation preserved (Principle 5).",
-    "A Transition becomes a Law only via human-gated validation — the FSCTM path (conflict -> breakdown -> recombination -> new law).",
-    "No known transition for a (state, driver) is a GAP that feeds Innovation Space / breakdown — reported, never invented."
+    "A Transition becomes a Law only via human-gated validation (FSCTM)."
   ]
 }

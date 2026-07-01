@@ -317,11 +317,14 @@ safety envelope (everything generated is a hypothesis).
 
 ### The Material World Model — the physics substrate (drafted on paper)
 
-> **Now drafted as a standard** (ontology → schema → engine, in dependency order):
-> `docs/material-state/MaterialWorldModel.md`. Material World Model Ontology v1.0
-> (entities/relations), Material State Schema v1.0 (State + Transition, worked
-> epoxy example), and the Material Transformation Engine contract (Engine Contract
-> v1.1 unchanged, `reasoning.class: simulation`, `predict = 5`). Still docs only —
+> **Now drafted as a standard AND falsification-tested** (ontology → schema →
+> engine): `docs/material-state/`. Renamed **Material Behavior Model (MBM)** — it
+> models behaviour (matter+energy+environment+time), not a material. The
+> **MBM Ontology Validation Suite** (`npm run test:mbm-stress`) tried to *break*
+> the ontology across 5 driver families + coupled drivers + unknown + impossible
+> + 7 statuses + 5 invariants; **v1.0 failed 7 ways and was evolved to v1.1**,
+> which passes all 8 survival dimensions. Plus the Material Transformation Engine
+> (Engine Contract v1.1 unchanged, `simulation`, `predict = 5`). Still docs only —
 > no code, no simulation.
 
 The deepest missing substrate. Today knowledge flows

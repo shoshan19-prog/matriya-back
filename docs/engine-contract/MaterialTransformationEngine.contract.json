@@ -131,7 +131,7 @@
   },
   "latency": { "unit": "ms", "p50": null, "p95": null, "max": null, "notes": "Unmeasured; bounded by traversal depth." },
   "dependencies": [
-    { "name": "Material State Space (material-state/v1.0)", "kind": "datastore", "required": true, "notes": "The world model it traverses. Does NOT exist yet — the layer this engine sits on." },
+    { "name": "Material Behavior Model (material-state/v1.1)", "kind": "datastore", "required": true, "notes": "The world model it traverses (validated by the MBM Ontology Validation Suite). Does NOT exist yet — the layer this engine sits on." },
     { "name": "IKL mechanisms", "kind": "datastore", "required": false, "notes": "Links each transition to its mechanism." },
     { "name": "confidence-rubric (source-tier weights)", "kind": "config", "required": true }
   ],
