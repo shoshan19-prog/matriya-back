@@ -120,12 +120,13 @@ Knowledge Tension Map · C.9 Explicit Epistemic State.
 
 ### Six further integrating ideas (from review)
 
-- **C.10 — Prediction Calibration Engine.** After each experiment: `Expected ΔMRI
-  → Observed ΔMRI → Calibration Error`, rolled up into a **Model Calibration
-  Score**. Turns the system from an *estimator* into a *learner* — it discovers
-  whether it is systematically optimistic or pessimistic and corrects its own
-  gain forecasts. Consumes the `predicted/observed/calibrationError` slots C.4
-  already emits; feeds C.5.
+- **C.10 — Prediction Calibration Engine ✅** (built — see
+  `MBM-Stage-C-PredictionCalibration.md`). After each experiment: `Expected ΔMRI →
+  Observed ΔMRI → Calibration Error`, rolled up into a **calibrationScore** plus
+  bias by experiment type and by uncertainty component. Turns the system from an
+  *estimator* into a *learner* — it discovers whether it is systematically
+  optimistic or pessimistic. Consumes the `predicted/observed/calibrationError`
+  slots C.4 emits; measurement only (no decisions); feeds C.5.
 - **C.11 — Mechanism Consensus (triangulation).** C.1 ranks paths individually.
   This adds: *how many independent routes converge on the same intermediate?* If
   three independent paths pass through one intermediate, the **mechanism** gains
