@@ -43,8 +43,38 @@ export function gatedFlight(mbm, corpus, dataset, request) {
   };
 }
 
-// --- direct run: gated flight + self-consistency / bite ---------------------
+// PASS / STOP decision for an operator run (a gauge for a human, not an auto-action).
+export function passStop(R, threshold = 0.5) {
+  const reasons = [];
+  if (!R.permitted) return { verdict: 'STOP', reasons: ['gate(s) failed: ' + R.gate.reasons.join('; ')] };
+  const f = R.flight;
+  if (f.report.newRegion) reasons.push('NEW REGION — the MBM has no route for this system; model it before trusting');
+  if (f.accuracy < threshold) reasons.push(`accuracy ${f.accuracy} < ${threshold} — pipeline/model mismatch, investigate`);
+  const safety = f.surveillance.filter((s) => s.adversarial && s.adversarial.length);
+  if (safety.length) reasons.push('surprise cross-flagged against the failure corpus — escalate to Experiment Planner (C.4): ' + safety.map((s) => s.id).join(', '));
+  return { verdict: reasons.length ? 'STOP' : 'PASS', reasons };
+}
+
+// --- direct run: OPERATOR mode (argv) or SELF-TEST mode (no args) ------------
 if (import.meta.url === `file://${process.argv[1]}`) {
+  const argv = process.argv.slice(2);
+  if (argv.length >= 2) {
+    // OPERATOR MODE: node p0-1-gated-flight.mjs <dataset.json> <ingest-request.json>
+    const ds = JSON.parse(readFileSync(argv[0], 'utf8'));
+    const req = JSON.parse(readFileSync(argv[1], 'utf8'));
+    const R = gatedFlight(mbm, corpus, ds, req);
+    const ps = passStop(R);
+    console.log(`P0.1 operator run — ${argv[0]}`);
+    console.log(`  gates: ${Object.entries(R.gate.gates).map(([g, v]) => `${g.split('_')[0]}${v ? '✓' : '✗'}`).join(' ')}  → promotable=${R.gate.promotable}`);
+    if (R.permitted) {
+      const f = R.flight;
+      console.log(`  accuracy ${(f.accuracy * 100).toFixed(0)}%  hypotheses ${f.hypotheses.length}  surprises ${f.surprises.length}  newRegion ${f.report.newRegion}  promotionApplied ${f.report.promotionApplied}`);
+    }
+    console.log(`\n  VERDICT: ${ps.verdict}`);
+    ps.reasons.forEach((r) => console.log(`    - ${r}`));
+    process.exit(ps.verdict === 'PASS' ? 0 : 1);
+  }
+
   let fails = 0;
   const assert = (ok, msg) => { if (!ok) { console.log('  ✗ ' + msg); fails++; } };
 
@@ -87,6 +117,11 @@ if (import.meta.url === `file://${process.argv[1]}`) {
   broken2.signoff.reviewer2 = broken2.signoff.reviewer1;
   assert(gatedFlight(mbm, corpus, dataset, broken2).permitted === false, 'single-reviewer request BLOCKS the flight (dual control)');
 
+  // PASS/STOP: the demo flight carries a corpus-flagged surprise (o4) ⇒ STOP for review
+  const ps = passStop(R);
+  assert(ps.verdict === 'STOP' && ps.reasons.some((r) => /failure corpus/.test(r)), 'PASS/STOP routes a corpus-flagged surprise to human review (STOP)');
+  // a blocked request is STOP with the gate reason
+  assert(passStop(B).verdict === 'STOP', 'a blocked (ungated) request is STOP');
   // purity
   assert(JSON.stringify(gatedFlight(mbm, corpus, dataset, request)) === JSON.stringify(R), 'gatedFlight is deterministic');
 
