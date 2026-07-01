@@ -176,23 +176,51 @@ precondition. The next step, on explicit approval only, is the pure-function
 extraction (gap G7); the Composer comes after that. Had any gap required changing
 what Search *does*, we would revise the contract first, not the engine.
 
-## Second test case — a stateful, causal engine
+## Test cases — three reasoning modes, one contract
 
-The contract is validated against a *second, opposite* engine on paper — the
-**Knowledge Event Engine** (`stateless: true` but `purity: stateful`; appends the
-Knowledge Ledger; `reasoning.class: causal`; `confidenceType: independent_evidence`).
-See [`KnowledgeEventEngine.contract.json`](./KnowledgeEventEngine.contract.json)
-and [`KnowledgeEventEngine-mapping.md`](./KnowledgeEventEngine-mapping.md).
+The contract is validated on paper against three engines chosen to span the
+extremes. All three validate against the *same, unchanged* schema:
 
-Result: the same manifest describes both a pure retrieval engine and a stateful
-knowledge-producing engine, and clarified that **statelessness (no memory) is
-orthogonal to purity (no effects)**. Two refinements are queued for **v0.3**:
+| Engine | purity | reasoning | writes | file |
+|--------|--------|-----------|--------|------|
+| **Search** (1) | pure | retrieval | none | `SearchEngine.contract.json` |
+| **Knowledge Event** | stateful | causal | hypothesis | `KnowledgeEventEngine.contract.json` |
+| **Combination Discovery** (16) | pure | generative | none | `CombinationDiscoveryEngine.contract.json` |
 
-- **F1 —** add `evidential`/`inductive` to `reasoning.class` (evidence
-  qualification is currently mapped to `causal` as a proxy).
-- **F2 —** add a retry/idempotency declaration (e.g. `retrySafe` /
-  `idempotencyKey`) so the Composer knows a retried stateful engine won't
-  duplicate its effect. v0.2 states the pure-vs-stateful rule but has no field
-  for it.
+Each has a `*-mapping.md` with its Evidence/IO mapping, gap list and verdict.
 
-These are recorded, not applied (no schema migration this round).
+Key results:
+- **Statelessness ≠ purity.** Knowledge Event is `stateless: true` (no memory) yet
+  `purity: stateful` (appends a ledger). The contract expressed this unchanged.
+- **Same number, different meaning.** `confidence: 0.8` means semantic proximity
+  (Search), agreement of independent evidence (Knowledge Event), or an untested
+  mechanism-plausibility prior (Combination Discovery). The Reasoning Signature
+  types this — a Composer must never average across `confidenceType`s.
+- **Type-level safety.** The generative engine's honesty (candidates carry
+  provenance + assumptions + required validation + `epistemicStatus =
+  candidate_hypothesis`) is enforced in its `produces` schema — the type system
+  doing safety.
+
+## v0.3 refinement backlog (recorded, not applied)
+
+No schema migration this round. The three test cases surfaced six additive
+refinements — the intended one-time set for **Engine Contract v1.0**:
+
+- **F1** — add `evidential`/`inductive` to `reasoning.class` (evidence
+  qualification is mapped to `causal` as a proxy).
+- **F2** — add a retry/idempotency declaration (`retrySafe` / `idempotencyKey`)
+  so a retried stateful engine won't duplicate its effect.
+- **F3** — make explicit that a produced artifact and a state change may be the
+  same logical thing (the event returned == the event appended).
+- **F4** — add a generative `confidenceType` (`mechanism_plausibility` /
+  `predictive_estimate`) so a plausibility prior is never read as a probability.
+- **F5** — add a top-level `outputEpistemics` block so a Composer can tell an
+  engine emits unvalidated hypotheses (with assumptions + required validation)
+  *without* parsing its payload schema.
+- **F6** — add generation-bounds + reproducibility (max candidates, search
+  strategy, seed) for generative/search engines that are `deterministic: false`.
+
+**Recommendation:** the contract has now been exercised across all three
+reasoning modes. Freeze v0.2 and cut **v1.0** folding in F1–F6 as one deliberate
+revision, rather than versioning piecemeal — then, on approval, the first
+implementation (G7 pure-function extraction). Nothing is implemented yet.
