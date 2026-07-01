@@ -1,0 +1,27 @@
+{
+  "apiVersion": "first-flight/v1",
+  "flag": "illustrative",
+  "note": "First-Flight DRY-RUN dataset. ILLUSTRATIVE reference-class thermal events for a standard APP/PER/MEL intumescent — NOT real lab data and NOT a factual measurement claim. Its purpose (Principle 1, live-attenuated) is to test the PIPELINE end to end, not to learn new facts. Real curves enter only through the human-verified ingestion gates (G1–G6). A deliberate surprise (350 °C endotherm) and a deliberate assumption-context anomaly are planted to exercise Surveillance Mode.",
+  "datasetId": "dataset_001_app_per_mel",
+  "system": "APP / pentaerythritol / melamine intumescent",
+  "domain": "intumescent",
+  "mbmEndpoints": { "from": "app:solid", "to": "app:char" },
+  "assumptions": [
+    { "id": "inert_atmosphere", "statement": "pyrolysis under inert (N2) atmosphere", "holds": true },
+    { "id": "heating_rate", "statement": "heating rate 10 °C/min", "value": 10, "holds": true }
+  ],
+  "observations": [
+    { "id": "o1", "technique": "TGA", "kind": "mass_loss", "tempC": 210, "magnitude": "~5%" },
+    { "id": "o2", "technique": "TGA", "kind": "mass_loss", "tempC": 320, "magnitude": "~15%" },
+    { "id": "o3", "technique": "DSC", "kind": "endotherm", "tempC": 320, "magnitude": "moderate" },
+    { "id": "o4", "technique": "DSC", "kind": "endotherm", "tempC": 350, "magnitude": "small" },
+    { "id": "o5", "technique": "TGA", "kind": "mass_loss", "tempC": 300, "magnitude": "~8%", "contextDependent": { "assumption": "heating_rate", "atValue": 5 } },
+    { "id": "o6", "technique": "TGA", "kind": "mass_loss", "tempC": 400, "magnitude": "~30%" }
+  ],
+  "expectedTransitions": [
+    { "label": "ammonia release / early volatilisation", "mbmTransition": null, "aboutTempC": 210 },
+    { "label": "polyphosphoric acid formation", "mbmTransition": "app_ppa1", "aboutTempC": 320 },
+    { "label": "char formation", "mbmTransition": "app_ppa2", "aboutTempC": 400 },
+    { "label": "crosslinking route", "mbmTransition": "app_xl1", "aboutTempC": 280 }
+  ]
+}
