@@ -82,6 +82,33 @@ contract:
 | Hybrid | KRL → Retrieval | relation *and* aggregation |
 | Ambiguous | REVIEW / Clarification | intent unclear — ask, don't guess |
 
+## Wiring — the Executor
+
+`scripts/krl-executor.mjs` (`test:krl-executor`) runs the routing plan through
+injected layer adapters — the same DI pattern as G7's `runSearch(input, ctx)`:
+
+```
+ctx = {
+  krl:       { identifyRelations(query) },
+  retrieval: { search(query, ctx), aggregate(query, ops, ctx) }   // ragService / SQL
+}
+```
+
+- **Relation** → `krl.identifyRelations`; **Aggregation** → `retrieval.aggregate`;
+  **Hybrid** → KRL then Retrieval, with the KRL **relation context fed into** the
+  aggregation; **Ambiguous** → clarify (nothing executed).
+- **Runtime LAW (defense in depth):** the executor re-checks
+  `assertLawKRLBoundary` before every KRL step and refuses a tampered plan that
+  puts aggregation on KRL; the KRL adapter has no `aggregate` method by
+  construction, so it *cannot* aggregate even if asked.
+- **Production adapter:** `retrievalFromRagService()` lazy-imports `ragService.js`
+  for `search` (RAG) — never loaded by the tests. `aggregate` throws until the
+  structured/SQL layer is wired (documented, not faked).
+
+Tests inject deterministic stub adapters (no heavy deps): relation runs KRL only,
+aggregation runs Retrieval only, hybrid runs KRL→Retrieval in order, ambiguous
+clarifies — verified call-by-call.
+
 ## Honest limits
 
 - Trigger-based concept detection is lexical + bilingual, not a learned classifier —
