@@ -1,0 +1,98 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://matriya.example/schemas/material-state/v1.0.json",
+  "title": "MATRIYA Material State Space",
+  "description": "STABLE v1.0. The world-model layer — more fundamental than an engine. Principle: EVERYTHING IN CHEMISTRY IS A STATE TRANSITION. A material is defined not only by its composition but by (a) which STATE it is in, (b) what DRIVER moves it to another state, and (c) the RESULT of that transition. Knowledge stops being `Material -> Property` and becomes `Material -> State -> Transition -> Property` — dynamic, not static. This document is a graph: nodes are material states, edges are provenance-bound transitions. Documents/patents/TGA/DSC/FTIR/experiments are EVIDENCE that updates this space; they are not the model. No invented chemistry (Principle 7): every state and every transition carries provenance. Documentation only; no runtime behaviour.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["apiVersion", "states", "transitions"],
+  "properties": {
+    "apiVersion": { "const": "material-state/v1.0" },
+    "states": { "type": "array", "items": { "$ref": "#/$defs/state" } },
+    "transitions": { "type": "array", "items": { "$ref": "#/$defs/transition" } }
+  },
+  "$defs": {
+    "provenance": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "sourceId": { "type": "integer", "description": "ikl_sources row." },
+        "url": { "type": "string" },
+        "documentType": { "type": "string", "description": "tds / sds / scientific_paper / tga / dsc / ftir / xrd / sem / patent / illustrative ..." },
+        "note": { "type": "string" }
+      }
+    },
+    "state": {
+      "description": "A material state — the facets are the Material World Model Ontology's `State` entity. Only id/material/state/provenance/confidence are required; the rest describe the state as richly as the evidence allows.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "material", "state", "provenance", "confidence"],
+      "properties": {
+        "id": { "type": "string", "description": "e.g. 'epoxy:glassy'. Referenced by transitions." },
+        "material": { "type": "string", "description": "Material or chemical family, e.g. 'epoxy', 'silane'." },
+        "state": { "type": "string", "description": "The state, e.g. 'glassy', 'rubbery', 'carbonized', 'siloxane_network'." },
+        "label": { "type": "string" },
+        "description": { "type": "string" },
+        "phase": { "enum": ["solid", "liquid", "gas", "gel", "glass", "crystalline", "amorphous", "network", "unknown"] },
+        "microstructure": { "type": ["string", "null"], "description": "e.g. 'cross-linked network', 'porous char', 'lamellar'." },
+        "composition": { "type": ["object", "array", "null"], "description": "What the material is made of in this state." },
+        "interfaces": { "type": "array", "items": { "type": "string" }, "description": "Interfaces present in this state — the bridge to Interface Physics (Engine 20/30)." },
+        "energyState": { "type": ["object", "string", "null"], "description": "e.g. { value, unit } or a qualitative energy level." },
+        "environment": { "type": ["object", "string", "null"], "description": "Ambient conditions defining this state (temperature/humidity/…)." },
+        "time": { "type": ["string", "null"], "description": "Temporal context (age, cure time) if the state is time-dependent." },
+        "properties": { "type": ["object", "array", "null"], "description": "Measurable properties in this state." },
+        "provenance": { "$ref": "#/$defs/provenance", "description": "No orphan knowledge — every state traces to a source." },
+        "confidence": { "type": "number", "minimum": 0, "maximum": 1 }
+      }
+    },
+    "transition": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "fromState", "toState", "driver", "reversibility", "evidence", "confidence"],
+      "properties": {
+        "id": { "type": "string" },
+        "fromState": { "type": "string", "description": "Ref to a state id." },
+        "toState": { "type": "string", "description": "Ref to a state id." },
+        "driver": {
+          "description": "What moves the material between states.",
+          "enum": ["temperature", "humidity", "pressure", "radiation", "uv", "electric_field", "mechanical_stress", "ph", "time"]
+        },
+        "threshold": {
+          "description": "The condition that triggers the transition.",
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "value": { "type": ["number", "string", "null"] },
+            "unit": { "type": ["string", "null"], "description": "e.g. '°C', '%RH', 'MPa'." },
+            "operator": { "enum": [">=", "<=", "~", "range", ">", "<"] }
+          }
+        },
+        "mechanism": { "type": ["string", "null"], "description": "Ref/name of the IKL mechanism driving it (e.g. 'chain scission', 'hydrolysis')." },
+        "rate": { "type": ["string", "null"], "description": "Kinetics, e.g. 'fast', 'slow', or a rate expression." },
+        "reversibility": { "enum": ["reversible", "irreversible", "partial", "unknown"] },
+        "energy": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "value": { "type": ["number", "null"] },
+            "unit": { "type": ["string", "null"], "description": "e.g. 'kJ/mol'." },
+            "sign": { "enum": ["endothermic", "exothermic", "absorb", "release", "unknown"] }
+          }
+        },
+        "resultingProperties": {
+          "type": "array",
+          "description": "How measurable properties change across this transition (e.g. 'thermal_conductivity ↓', 'modulus ↓').",
+          "items": { "type": "string" }
+        },
+        "evidence": {
+          "type": "array",
+          "minItems": 1,
+          "description": "Every transition is sourced (>=1 evidence) — no invented chemistry.",
+          "items": { "$ref": "#/$defs/provenance" }
+        },
+        "confidence": { "type": "number", "minimum": 0, "maximum": 1 },
+        "isHypothesis": { "type": "boolean", "default": false, "description": "True for a proposed-but-unobserved transition (a candidate path)." }
+      }
+    }
+  }
+}

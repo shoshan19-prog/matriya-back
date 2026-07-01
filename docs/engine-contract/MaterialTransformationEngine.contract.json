@@ -1,0 +1,152 @@
+{
+  "apiVersion": "engine-contract/v1.1",
+  "name": "material-transformation",
+  "displayName": "Material Transformation Engine",
+  "version": "0.1.0-draft",
+  "purpose": "Given a material state and a driver input, traverse the Material State Space to infer the resulting transition cascade and property changes — predictions, never facts.",
+  "category": "simulation",
+  "stateless": true,
+  "deterministic": true,
+  "purity": "pure",
+  "sideEffects": "read",
+  "changes": [],
+  "retrySafe": true,
+  "idempotencyKey": null,
+  "outputEpistemics": {
+    "emits": ["prediction", "explanation", "confidence", "missing_evidence"],
+    "outputClass": "hypothesis",
+    "emitsUnvalidated": true,
+    "guarantees": ["provenance", "uncertainty", "confidence_type"],
+    "neverAssertsAs": ["fact", "knowledge", "validated_knowledge"],
+    "validationGating": "human_gated"
+  },
+  "transformation": {
+    "statement": "Material State + Driver input -> inferred transition cascade (predicted states + property changes), each step provenance-bound",
+    "from": ["ikl.MaterialState@1", "ikl.DriverInput@1"],
+    "to": ["ikl.TransformationCascade@1"],
+    "operation": "traverse_state_space"
+  },
+  "consumes": [
+    {
+      "name": "initialState",
+      "type": "ikl.MaterialState@1",
+      "cardinality": "one",
+      "required": true,
+      "description": "Where the material starts, e.g. { material: 'epoxy', state: 'glassy' } or a state id.",
+      "schema": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["material"],
+        "properties": {
+          "material": { "type": "string" },
+          "state": { "type": "string" },
+          "stateId": { "type": "string" }
+        }
+      }
+    },
+    {
+      "name": "driver",
+      "type": "ikl.DriverInput@1",
+      "cardinality": "one",
+      "required": true,
+      "description": "The applied driver, e.g. { driver: 'temperature', magnitude: 800, unit: '°C' }. The engine infers, it does not search '800 degrees'.",
+      "schema": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["driver"],
+        "properties": {
+          "driver": { "enum": ["temperature", "humidity", "pressure", "radiation", "uv", "electric_field", "mechanical_stress", "ph", "time"] },
+          "magnitude": { "type": ["number", "string", "null"] },
+          "unit": { "type": ["string", "null"] }
+        }
+      }
+    }
+  ],
+  "produces": [
+    {
+      "name": "cascade",
+      "type": "ikl.TransformationCascade@1",
+      "cardinality": "one",
+      "description": "The inferred sequence of transitions. EVERY step carries its source transition's provenance, mechanism, confidence and resulting property changes; the cascade is a hypothesis (epistemicStatus locked), and cascade confidence is the weakest link along the path.",
+      "schema": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["path", "epistemicStatus", "confidence"],
+        "properties": {
+          "epistemicStatus": { "const": "prediction", "description": "Hard-locked: an inferred cascade is a prediction, never a fact." },
+          "confidence": { "type": "number", "minimum": 0, "maximum": 1, "description": "Weakest-link (min) of the traversed transition confidences." },
+          "path": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["fromState", "toState", "driver", "mechanism", "confidence", "provenance"],
+              "properties": {
+                "fromState": { "type": "string" },
+                "toState": { "type": "string" },
+                "driver": { "type": "string" },
+                "mechanism": { "type": ["string", "null"] },
+                "resultingProperties": { "type": "array", "items": { "type": "string" } },
+                "confidence": { "type": "number", "minimum": 0, "maximum": 1 },
+                "provenance": { "type": "array", "minItems": 1, "description": "Evidence for THIS transition (from the State Space edge)." }
+              }
+            }
+          },
+          "missingEvidence": { "type": "array", "description": "Steps with weak/absent evidence — feeds Knowledge Gap / Experiment Planner." },
+          "terminatedReason": { "enum": ["reached_terminal_state", "no_further_transition", "max_depth"], "description": "Why the cascade stopped." }
+        }
+      }
+    }
+  ],
+  "reasoning": {
+    "class": "simulation",
+    "confidenceType": "predictive_estimate",
+    "emitsTrace": true,
+    "evidenceModel": "cascade confidence = min over traversed transition confidences (weakest link); each transition's confidence comes from its State Space evidence.",
+    "notes": "This is inference over the Material State Space, NOT retrieval. '800°C on epoxy' becomes a traversal (glassy → rubbery → degradation → char), not a search for '800 degrees'. Predictions are unvalidated hypotheses; uncertainty is exposed per step."
+  },
+  "confidence": {
+    "emits": true,
+    "scale": "0..1",
+    "granularity": "both",
+    "method": "weakest_link_over_path",
+    "calibrated": false,
+    "notes": "Per-step and cascade-level. A path through low-confidence transitions yields low cascade confidence, never a confident guess."
+  },
+  "capabilities": {
+    "observe": 2,
+    "explain": 4,
+    "predict": 5,
+    "recommend": 1,
+    "generate": 1,
+    "validate": 0,
+    "learn": 1
+  },
+  "cost": {
+    "model": "relative",
+    "unit": "compute-units",
+    "estimate": null,
+    "notes": "Graph traversal over the Material State Space from the initial state under the driver. Cost scales with reachable path length."
+  },
+  "latency": { "unit": "ms", "p50": null, "p95": null, "max": null, "notes": "Unmeasured; bounded by traversal depth." },
+  "dependencies": [
+    { "name": "Material State Space (material-state/v1.0)", "kind": "datastore", "required": true, "notes": "The world model it traverses. Does NOT exist yet — the layer this engine sits on." },
+    { "name": "IKL mechanisms", "kind": "datastore", "required": false, "notes": "Links each transition to its mechanism." },
+    { "name": "confidence-rubric (source-tier weights)", "kind": "config", "required": true }
+  ],
+  "failureModes": [
+    { "code": "E_UNKNOWN_STATE", "condition": "initial state not present in the State Space", "result": "rejected — cannot start a traversal from an unknown state", "severity": "error", "recoverable": true },
+    { "code": "E_NO_TRANSITION", "condition": "no known transition from this state under this driver", "result": "empty cascade + terminatedReason=no_further_transition — this is the FSCTM breakdown trigger (a gap, not a failure), fed to Innovation Space", "severity": "empty", "recoverable": true },
+    { "code": "E_INSUFFICIENT_KNOWLEDGE", "condition": "transitions exist but with weak/absent evidence", "result": "low-confidence cascade with missingEvidence populated — uncertainty exposed, never hidden", "severity": "degraded", "recoverable": true },
+    { "code": "E_MSS_UNAVAILABLE", "condition": "Material State Space store unreachable", "result": "failed", "severity": "error", "recoverable": false }
+  ],
+  "provenance": {
+    "carriesProvenance": true,
+    "notes": "Each cascade step cites the State Space edge's evidence; a step without provenance is structurally impossible (required in the produces schema)."
+  },
+  "domainSeparation": {
+    "reads": ["external", "internal"],
+    "writes": ["none"]
+  }
+}

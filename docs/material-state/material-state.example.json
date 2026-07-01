@@ -1,0 +1,52 @@
+{
+  "apiVersion": "material-state/v1.0",
+  "_note": "ILLUSTRATIVE worked example demonstrating the schema shape. Threshold values are placeholders flagged documentType='illustrative' with low confidence — they are NOT sourced facts and must be replaced with real TDS/DSC/TGA provenance before use (Principle 7).",
+  "states": [
+    { "id": "epoxy:glassy", "material": "epoxy", "state": "glassy", "phase": "glass", "provenance": { "documentType": "illustrative", "note": "placeholder" }, "confidence": 0.2 },
+    { "id": "epoxy:rubbery", "material": "epoxy", "state": "rubbery", "phase": "amorphous", "provenance": { "documentType": "illustrative", "note": "placeholder" }, "confidence": 0.2 },
+    { "id": "epoxy:thermal_degradation", "material": "epoxy", "state": "thermal_degradation", "provenance": { "documentType": "illustrative", "note": "placeholder" }, "confidence": 0.2 },
+    { "id": "epoxy:carbonized", "material": "epoxy", "state": "carbonized", "phase": "solid", "provenance": { "documentType": "illustrative", "note": "placeholder" }, "confidence": 0.2 }
+  ],
+  "transitions": [
+    {
+      "id": "t1",
+      "fromState": "epoxy:glassy",
+      "toState": "epoxy:rubbery",
+      "driver": "temperature",
+      "threshold": { "value": "Tg", "unit": "°C", "operator": ">=" },
+      "mechanism": "glass transition",
+      "rate": "fast",
+      "reversibility": "reversible",
+      "energy": { "sign": "absorb" },
+      "resultingProperties": ["modulus ↓", "chain mobility ↑"],
+      "evidence": [{ "documentType": "illustrative", "note": "would be a DSC scan" }],
+      "confidence": 0.2
+    },
+    {
+      "id": "t2",
+      "fromState": "epoxy:rubbery",
+      "toState": "epoxy:thermal_degradation",
+      "driver": "temperature",
+      "threshold": { "value": "~onset", "unit": "°C", "operator": ">=" },
+      "mechanism": "chain scission",
+      "rate": "slow",
+      "reversibility": "irreversible",
+      "resultingProperties": ["mass ↓", "volatiles released", "strength ↓"],
+      "evidence": [{ "documentType": "illustrative", "note": "would be a TGA curve" }],
+      "confidence": 0.2
+    },
+    {
+      "id": "t3",
+      "fromState": "epoxy:thermal_degradation",
+      "toState": "epoxy:carbonized",
+      "driver": "temperature",
+      "threshold": { "value": "~char", "unit": "°C", "operator": ">=" },
+      "mechanism": "carbonization / char formation",
+      "reversibility": "irreversible",
+      "energy": { "sign": "release" },
+      "resultingProperties": ["char yield ↑", "porosity change", "thermal conductivity ↓"],
+      "evidence": [{ "documentType": "illustrative", "note": "would be TGA residue + literature" }],
+      "confidence": 0.2
+    }
+  ]
+}

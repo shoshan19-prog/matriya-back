@@ -315,9 +315,16 @@ solution in the current mechanism space, that is exactly the trigger for stage *
 cross into a new mechanism. Governed, as ever, by Principle 4 and the contract
 safety envelope (everything generated is a hypothesis).
 
-### Architecture backlog — Material State Space + Material Transformation Engine
+### The Material World Model — the physics substrate (drafted on paper)
 
-The deepest missing substrate (recorded, not built). Today knowledge flows
+> **Now drafted as a standard** (ontology → schema → engine, in dependency order):
+> `docs/material-state/MaterialWorldModel.md`. Material World Model Ontology v1.0
+> (entities/relations), Material State Schema v1.0 (State + Transition, worked
+> epoxy example), and the Material Transformation Engine contract (Engine Contract
+> v1.1 unchanged, `reasoning.class: simulation`, `predict = 5`). Still docs only —
+> no code, no simulation.
+
+The deepest missing substrate. Today knowledge flows
 `Documents → Embeddings → Graph`. But chemistry does not work like that; it works
 like physics:
 
