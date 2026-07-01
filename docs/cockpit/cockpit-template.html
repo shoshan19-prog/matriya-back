@@ -72,7 +72,8 @@
   </div>
 </header>
 <nav>
-  <button data-view="cockpit" class="active">🛩️ Cockpit — עכשיו</button>
+  <button data-view="home" class="active">🏠 Home</button>
+  <button data-view="cockpit">🛩️ Cockpit — עכשיו</button>
   <button data-view="timeline">🕒 Timeline — לאורך זמן</button>
   <button data-view="graph">🗺️ Knowledge Graph — מבנית</button>
   <button data-view="phases">🧊 Phase Diagram</button>
@@ -263,11 +264,36 @@ function initReactive(){
   draw(20);
 }
 
-const views={cockpit,timeline,graph,phases:phasediagram,energy,transfer,reactive};
+const GH='https://github.com/shoshan19-prog/matriya-back/tree/claude/matriya-industrial-knowledge-lib-9sik82/';
+function home(){
+  const cards=[
+    ['🧬 Material Behavior Model (MBM)','Stage A→C: אונטולוגיה · 5 אינווריאנטים · reliability/MRI · lulaat חשיבה מדעית (alt-paths → uncertainty → info-gain → planner → calibration → RRI).','docs/material-state'],
+    ['🔥 Failure Knowledge Base','קורפוס כשלים מבני (16 מקרים) + Pattern Engine + Negative Knowledge + provenance pilot מול תקנים אמיתיים.','docs/failure-library'],
+    ['🛩️ First Flight + G1–G6','חשיפה מבוקרת ראשונה: dry-run + golden suite (3 כימיות) + טיסה מגודרת דרך שערי ingestion.','docs/first-flight'],
+    ['🔗 KRL ↔ Retrieval Router','חוזה סמכות: Relation/Aggregation/Hybrid/Ambiguous · Guard לפי intent · LAW-KRL-BOUNDARY-001 · executor.','docs/krl'],
+    ['📜 Engine & Task Contracts','Engine Contract v1.1 · Capability Ontology · Decision Boundary · Decision Workspace.','docs/engine-contract'],
+    ['🏛️ Architecture Doctrine','הדפוס החוזר + 3 חוקי ארכיטקטורה (Contract Before Capability · Enforcement Before Integration · Adapter Last).','docs/architecture']
+  ];
+  return `
+  <div class="card" style="margin-bottom:16px;background:linear-gradient(135deg,#131c2e,#0e1626)">
+    <div class="big" style="font-size:26px">MATRIYA — Scientific Reasoning Engine</div>
+    <div class="muted" style="margin-top:6px;font-size:14px">מנוע חשיבה מדעית ל-R&D תעשייתי. לא מנתח נתונים בלבד — מנהל את מחזור החיים של השערות, ניסויים ולמידה, עם חוזים, גבולות ואכיפה.</div>
+    <div class="chips" style="margin-top:12px">
+      <span class="chip ok">44 commits · יומיים</span><span class="chip">~90 קבצים</span><span class="chip">25 test suites ✓</span><span class="chip">measurement / report only</span><span class="chip">no invented chemistry</span>
+    </div>
+  </div>
+  <div class="grid">
+    ${cards.map(([t,d,p])=>`<div class="card"><h3 style="color:#e6edf6;text-transform:none;font-size:15px">${t}</h3><div class="muted" style="margin:6px 0 10px">${d}</div><a href="${GH}${p}" target="_blank" style="color:#4aa8ff;font-size:13px">קוד ומסמכים ↗</a></div>`).join('')}
+  </div>
+  <div class="card" style="margin-top:14px"><h3>הכלים החיים (למעלה בתפריט)</h3>
+    <div class="muted">Cockpit (מצב הרצה + PASS/STOP) · Knowledge Graph (למה המודל חושב מה שהוא חושב) · Phase Diagram (תרמודינמיקה של ידע) · Knowledge Energy · Transfer (KTE) · Reactive (סימולציה אינטראקטיבית). כל הנתונים illustrative/reference-class עד נתוני מעבדה אמיתיים.</div>
+  </div>`;
+}
+const views={home,cockpit,timeline,graph,phases:phasediagram,energy,transfer,reactive};
 function render(v){ if(reactiveTimer){clearInterval(reactiveTimer);reactiveTimer=null;} main.innerHTML=views[v](); document.querySelectorAll('nav button').forEach(b=>b.classList.toggle('active',b.dataset.view===v));
   const sb=document.getElementById('sbDataset'); const list=S.datasets||[]; if(sb&&list[currentIdx]) sb.textContent='Dataset: '+esc(list[currentIdx].project.split(' — ')[0]); }
 document.querySelectorAll('nav button').forEach(b=>b.addEventListener('click',()=>render(b.dataset.view)));
-render('cockpit');
+render('home');
 </script>
 </body>
 </html>
