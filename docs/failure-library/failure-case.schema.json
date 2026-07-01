@@ -1,0 +1,75 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "matriya/failure-library/failure-case/v1",
+  "title": "MATRIYA Failure Case",
+  "description": "A structured industrial FAILURE (or near-failure) case — not a document, a failure object. It captures why a formulation/system failed, links it to the Material Behavior Model, and records negative knowledge (conditions under which it must not operate). Cases are provenance-bound; illustrative pilot cases are flagged as such. No invented chemistry: only standard, documented failure modes.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["id", "domain", "materialSystem", "failureMode", "outcome", "conditions", "observedSymptoms", "claimedMechanism", "evidenceQuality", "rootCause", "mappedMBM", "confidence", "provenance"],
+  "properties": {
+    "id": { "type": "string", "pattern": "^fail_[a-z0-9_]+$" },
+    "domain": { "enum": ["intumescent", "silicate", "cementitious", "polymer"] },
+    "materialSystem": { "type": "string", "minLength": 3 },
+    "failureMode": { "type": "string", "minLength": 3 },
+    "outcome": { "enum": ["failure", "near_failure"], "description": "near_failure = the Near-Failure Library: it almost failed. The 'almost' is where new mechanisms hide." },
+    "margin": { "type": ["string", "null"], "description": "for near_failure: how close to the edge (e.g. 'adhesion dropped to 0.8 MPa, spec 0.7')." },
+    "conditions": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "the driver/environment envelope in which the failure occurred.",
+      "properties": {
+        "drivers": { "type": "array", "items": { "type": "string" } },
+        "environment": { "type": "string" }
+      }
+    },
+    "observedSymptoms": { "type": "array", "minItems": 1, "items": { "type": "string" } },
+    "claimedMechanism": { "type": "string", "minLength": 3 },
+    "cascade": {
+      "type": "array",
+      "description": "ordered event sequence — the Failure Pattern Engine mines recurring sub-sequences across cases.",
+      "items": { "type": "string" }
+    },
+    "evidenceQuality": { "enum": ["instruments", "scientific_paper", "patent", "field_report", "anecdotal", "illustrative"] },
+    "rootCause": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status"],
+      "properties": {
+        "status": { "enum": ["known", "suspected", "unknown"] },
+        "description": { "type": "string" }
+      }
+    },
+    "mappedMBM": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "link into the Material Behavior Model. States/transitions the MBM lacks are how this corpus generates ΔK. Novelty is DERIVED by the pilot against the live MBM, not declared here.",
+      "properties": {
+        "fromState": { "type": ["string", "null"] },
+        "toState": { "type": ["string", "null"] },
+        "mechanism": { "type": ["string", "null"] },
+        "competingMechanismFor": { "type": ["string", "null"], "description": "id of an existing MBM transition this case offers an ALTERNATIVE explanation for." }
+      }
+    },
+    "brokenInvariant": {
+      "type": ["string", "null"],
+      "enum": ["conservation_of_mass", "entropy_monotonicity", "causality", "equivalence", "continuity", null],
+      "description": "which world-model invariant the failure appears to challenge (a candidate boundary/law condition)."
+    },
+    "antiConditions": {
+      "type": "array",
+      "description": "Negative Knowledge: conditions under which this system must NOT operate (FSCTM Boundary). The knowledge of where it fails.",
+      "items": { "type": "string" }
+    },
+    "suggestedExperiment": { "type": ["string", "null"] },
+    "confidence": { "type": "number", "minimum": 0, "maximum": 1 },
+    "provenance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["source", "flag"],
+      "properties": {
+        "source": { "type": "string", "description": "where this came from; for pilot cases a domain-standard reference class, not a fabricated citation." },
+        "flag": { "enum": ["illustrative", "sourced"], "description": "illustrative = standard/textbook failure mode used for the pilot; sourced = a specific provenance-bound document (ingestion era)." }
+      }
+    }
+  }
+}
