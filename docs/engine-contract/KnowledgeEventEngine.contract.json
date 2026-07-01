@@ -1,0 +1,165 @@
+{
+  "apiVersion": "engine-contract/v0.2",
+  "name": "knowledge-event",
+  "displayName": "Knowledge Event Engine (Continuous Learning Loop)",
+  "version": "0.1.0-draft",
+  "purpose": "Qualify provenance-bound evidence into an appended, unvalidated Knowledge Event (a ΔK candidate) in the Knowledge Ledger.",
+  "category": "knowledge-production",
+  "stateless": true,
+  "deterministic": false,
+  "purity": "stateful",
+  "sideEffects": "write",
+  "changes": [
+    {
+      "target": "knowledge-ledger",
+      "effect": "append",
+      "domain": "hypothesis"
+    }
+  ],
+  "transformation": {
+    "statement": "Evidence -> qualified Knowledge Event (returned AND appended to the ledger as unvalidated)",
+    "from": ["ikl.Evidence@1"],
+    "to": ["ikl.KnowledgeEvent@1"],
+    "operation": "qualify_and_append_event"
+  },
+  "consumes": [
+    {
+      "name": "evidence",
+      "type": "ikl.Evidence@1",
+      "cardinality": "one",
+      "required": true,
+      "description": "A provenance-bound claim to be qualified. MUST carry at least one source; unsourced evidence is rejected (E_UNSOURCED_EVIDENCE).",
+      "schema": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["claim", "subject", "sources", "evidenceType"],
+        "properties": {
+          "claim": { "type": "string", "minLength": 3, "description": "The asserted knowledge, e.g. 'salt contamination reduces plaster pull-off'." },
+          "subject": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["type"],
+            "properties": {
+              "type": { "type": "string", "description": "What the claim is about (material, mechanism, failure, product, ...)." },
+              "ref": { "type": "string", "description": "Optional id/handle of the subject in the knowledge graph." }
+            }
+          },
+          "sources": {
+            "type": "array",
+            "minItems": 1,
+            "description": "Provenance. Each item references an ikl_sources row or an external document. No orphan knowledge (Principle 3).",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "sourceId": { "type": "integer" },
+                "url": { "type": "string" },
+                "documentType": { "type": "string" }
+              }
+            }
+          },
+          "evidenceType": {
+            "enum": ["experiment", "field_observation", "failure", "lab_result", "literature", "expert"]
+          },
+          "subjectDomain": {
+            "enum": ["internal", "external"],
+            "description": "Whether the evidence originates in Fresco internal knowledge or external sources."
+          },
+          "observations": { "type": "string" }
+        }
+      }
+    }
+  ],
+  "produces": [
+    {
+      "name": "event",
+      "type": "ikl.KnowledgeEvent@1",
+      "cardinality": "one",
+      "description": "The qualified event, returned to the caller AND appended to the ledger. Always starts unvalidated (validationStatus=pending) — never auto-promoted to validated knowledge (Principle 4).",
+      "schema": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["claim", "subject", "evidenceRefs", "confidence", "confidenceType", "validationStatus"],
+        "properties": {
+          "eventId": { "type": "string" },
+          "claim": { "type": "string" },
+          "subject": { "type": "object" },
+          "evidenceRefs": {
+            "type": "array",
+            "minItems": 1,
+            "description": "The sources that support the event — carried through, never dropped."
+          },
+          "confidence": { "type": "number", "minimum": 0, "maximum": 1 },
+          "confidenceType": { "const": "independent_evidence" },
+          "reasoningClass": { "type": "string" },
+          "reasoningTrace": { "type": ["string", "null"] },
+          "deltaK": { "type": ["number", "null"], "description": "Optional magnitude of the knowledge change." },
+          "validationStatus": {
+            "enum": ["pending", "validated", "rejected"],
+            "description": "MUST be 'pending' on creation. Promotion is a separate human-gated step."
+          },
+          "contested": { "type": "boolean", "description": "True when evidence conflicts (paradox flagged for team review)." },
+          "createdAt": { "type": "string" }
+        }
+      }
+    }
+  ],
+  "reasoning": {
+    "class": "causal",
+    "confidenceType": "independent_evidence",
+    "emitsTrace": true,
+    "evidenceModel": "independent sources counted and weighted by source tier (Confidence Engine rubric: internal-validated 0.95 ... hypothesis 0.20)",
+    "notes": "Confidence is provenance-based: derived from how many INDEPENDENT evidences support the claim and each source's tier. This is the exact contrast with ikl-search, whose identical 0.81 would mean mere semantic proximity. NOTE: 'class: causal' is a proxy — the engine's reasoning is really evidential qualification; see finding F1 (contract v0.3 candidate)."
+  },
+  "confidence": {
+    "emits": true,
+    "scale": "0..1",
+    "granularity": "item",
+    "method": "provenance_weighted_evidence",
+    "calibrated": false,
+    "notes": "Weighs independent-source count against source tier. Below a qualification threshold the engine does NOT append (E_INSUFFICIENT_SUPPORT)."
+  },
+  "capabilities": {
+    "observe": 3,
+    "explain": 3,
+    "predict": 1,
+    "recommend": 0,
+    "generate": 4,
+    "validate": 4,
+    "learn": 5
+  },
+  "cost": {
+    "model": "relative",
+    "unit": "compute-units",
+    "estimate": null,
+    "notes": "Evidence qualification + one transactional ledger append. Unmeasured."
+  },
+  "latency": {
+    "unit": "ms",
+    "p50": null,
+    "p95": null,
+    "max": null,
+    "notes": "Dominated by the atomic append (produce+append must not partially apply). Unmeasured."
+  },
+  "dependencies": [
+    { "name": "knowledge-ledger", "kind": "datastore", "required": true, "notes": "Append-only store of Knowledge Events. Does NOT exist yet (gap KG1)." },
+    { "name": "ikl_sources (provenance store)", "kind": "datastore", "required": true, "notes": "Resolves/validates the evidence sources." },
+    { "name": "confidence-rubric (source-tier weights)", "kind": "config", "required": true, "notes": "The Confidence Engine rubric as data — NOT an engine dependency (statelessness)." },
+    { "name": "IKL knowledge graph (mechanisms/relationships)", "kind": "datastore", "required": false, "notes": "Optional: link a causal event to existing graph nodes." }
+  ],
+  "failureModes": [
+    { "code": "E_NO_EVIDENCE", "condition": "no evidence supplied", "result": "rejected before any work", "severity": "error", "recoverable": true },
+    { "code": "E_UNSOURCED_EVIDENCE", "condition": "evidence carries zero sources", "result": "rejected — no orphan knowledge (Principle 3); nothing appended", "severity": "error", "recoverable": true },
+    { "code": "E_INSUFFICIENT_SUPPORT", "condition": "qualified confidence below threshold", "result": "no append; returns a non-appended low-confidence event", "severity": "empty", "recoverable": true },
+    { "code": "E_CONFLICTING_EVIDENCE", "condition": "evidence contradicts existing high-confidence knowledge", "result": "appends event flagged contested=true + warning (paradox for human review)", "severity": "degraded", "recoverable": true },
+    { "code": "E_LEDGER_UNAVAILABLE", "condition": "append target unreachable", "result": "failed; MUST NOT return an event as if appended (atomic: all-or-nothing)", "severity": "error", "recoverable": false }
+  ],
+  "provenance": {
+    "carriesProvenance": true,
+    "notes": "The event embeds evidenceRefs; the append is meaningless without them. Provenance is load-bearing here, not decorative."
+  },
+  "domainSeparation": {
+    "reads": ["internal", "external"],
+    "writes": ["hypothesis"]
+  }
+}

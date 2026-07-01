@@ -175,3 +175,24 @@ Decision gate (per the brief's A.2 test): **implementation stays deferred.** We 
 precondition. The next step, on explicit approval only, is the pure-function
 extraction (gap G7); the Composer comes after that. Had any gap required changing
 what Search *does*, we would revise the contract first, not the engine.
+
+## Second test case — a stateful, causal engine
+
+The contract is validated against a *second, opposite* engine on paper — the
+**Knowledge Event Engine** (`stateless: true` but `purity: stateful`; appends the
+Knowledge Ledger; `reasoning.class: causal`; `confidenceType: independent_evidence`).
+See [`KnowledgeEventEngine.contract.json`](./KnowledgeEventEngine.contract.json)
+and [`KnowledgeEventEngine-mapping.md`](./KnowledgeEventEngine-mapping.md).
+
+Result: the same manifest describes both a pure retrieval engine and a stateful
+knowledge-producing engine, and clarified that **statelessness (no memory) is
+orthogonal to purity (no effects)**. Two refinements are queued for **v0.3**:
+
+- **F1 —** add `evidential`/`inductive` to `reasoning.class` (evidence
+  qualification is currently mapped to `causal` as a proxy).
+- **F2 —** add a retry/idempotency declaration (e.g. `retrySafe` /
+  `idempotencyKey`) so the Composer knows a retried stateful engine won't
+  duplicate its effect. v0.2 states the pure-vs-stateful rule but has no field
+  for it.
+
+These are recorded, not applied (no schema migration this round).
