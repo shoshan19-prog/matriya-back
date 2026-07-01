@@ -1,0 +1,141 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://matriya.example/schemas/capability-planner/v1.0.json",
+  "title": "MATRIYA Capability Plan",
+  "description": "STABLE v1.0. The output artifact of the Capability Planner — the PURE planning layer that connects Scientific Task Contract -> Capability Ontology -> Engine Contract -> Decision Workspace. It is a resolver, NOT a Composer and NOT an executor: it translates a task's capability graph into an engine plan and the emissions that will feed a Decision Workspace. It NAMES NO ENGINE INSIDE THE TASK (the task stays capability-only; the plan is where engines first appear), it EXECUTES NOTHING (no results), and — the Decision Boundary — it may assemble Decision Workspace inputs but may never emit or select a decision. If a required capability is unmet, it REPORTS A TYPED GAP instead of inventing a plan. Documentation only.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["apiVersion", "planId", "task", "status", "steps", "workspacePlan", "decisionBoundary", "executed", "selectionCriteria"],
+  "properties": {
+    "apiVersion": { "const": "capability-planner/v1.0" },
+    "planId": { "type": "string" },
+    "task": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["taskId", "taskType", "referencesEngines"],
+      "properties": {
+        "taskId": { "type": "string" },
+        "taskType": { "type": "string" },
+        "referencesEngines": { "const": false, "description": "Echo of the task contract: the TASK names no engine. Engines appear only in this plan's steps." }
+      }
+    },
+    "status": {
+      "description": "'planned' = every capability node covered; 'partial' = some non-critical nodes gap; 'blocked' = a required node unmet. Gaps are reported, never papered over.",
+      "enum": ["planned", "partial", "blocked"]
+    },
+    "steps": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/step" } },
+    "edges": {
+      "type": "array",
+      "description": "Plan DAG — mirrors the task capabilityGraph edges.",
+      "items": { "type": "object", "additionalProperties": false, "required": ["from", "to"], "properties": { "from": { "type": "string" }, "to": { "type": "string" } } }
+    },
+    "workspacePlan": {
+      "description": "How the planned emissions map to Decision Workspace sections. The plan TERMINATES at the workspace — never at a decision.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["terminal", "sections"],
+      "properties": {
+        "terminal": { "const": "decision-workspace" },
+        "sections": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "alternatives": { "type": "array", "items": { "type": "string" } },
+            "tradeOffs": { "type": "array", "items": { "type": "string" } },
+            "risks": { "type": "array", "items": { "type": "string" } },
+            "evidenceQuality": { "type": "array", "items": { "type": "string" } },
+            "uncertainty": { "type": "array", "items": { "type": "string" } },
+            "missingEvidence": { "type": "array", "items": { "type": "string" } },
+            "whatIf": { "type": "array", "items": { "type": "string" } }
+          }
+        }
+      }
+    },
+    "decisionBoundary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["plannerSelectsDecision", "assemblesWorkspaceInputs", "humanDecisionExternal"],
+      "properties": {
+        "plannerSelectsDecision": { "const": false },
+        "assemblesWorkspaceInputs": { "const": true },
+        "humanDecisionExternal": { "const": true }
+      }
+    },
+    "gaps": { "type": "array", "items": { "$ref": "#/$defs/gap" } },
+    "executed": { "const": false, "description": "A plan is never executed. It carries no results — only intended engine invocations and their declared emission types." },
+    "selectionCriteria": {
+      "description": "The ordered rules used to pick engines. Informational; documents how selection was made.",
+      "type": "array",
+      "items": { "type": "string" }
+    }
+  },
+  "allOf": [
+    {
+      "$comment": "An uncovered step MUST carry a typed gap — never a silent hole.",
+      "if": { "properties": { "steps": { "contains": { "properties": { "covered": { "const": false } }, "required": ["covered"] } } } },
+      "then": { "required": ["gaps"], "properties": { "status": { "enum": ["partial", "blocked"] } } }
+    }
+  ],
+  "$defs": {
+    "primitive": { "enum": ["observe", "explain", "predict", "recommend", "generate", "validate", "learn"] },
+    "emit": {
+      "description": "Emission kinds from Engine Contract v1.1. 'decision' is deliberately absent — the planner can never plan a decision.",
+      "enum": ["observation", "evidence", "explanation", "prediction", "candidate", "recommendation", "trade_off", "risk", "confidence", "missing_evidence"]
+    },
+    "step": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["nodeId", "capability", "requiredPrimitives", "covered"],
+      "properties": {
+        "nodeId": { "type": "string", "description": "Matches the task capabilityGraph node id." },
+        "capability": { "type": "string", "description": "Ontology id (primitive or derived) from the task node." },
+        "minStrength": { "type": "integer", "minimum": 0, "maximum": 5 },
+        "requiredPrimitives": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "$ref": "#/$defs/primitive" },
+          "description": "Derived capabilities expanded to primitives via the Capability Ontology."
+        },
+        "assignments": {
+          "type": "array",
+          "description": "One assignment per required primitive: the engine chosen to satisfy it and what it will emit.",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["primitive", "engine", "strength"],
+            "properties": {
+              "primitive": { "$ref": "#/$defs/primitive" },
+              "engine": { "type": "string", "description": "The engine name (engines appear here — never in the task)." },
+              "strength": { "type": "integer", "minimum": 0, "maximum": 5 },
+              "emits": { "type": "array", "items": { "$ref": "#/$defs/emit" } },
+              "rationale": { "type": "string" }
+            }
+          }
+        },
+        "plannedEmissions": { "type": "array", "items": { "$ref": "#/$defs/emit" } },
+        "covered": { "type": "boolean" },
+        "gap": { "oneOf": [ { "type": "null" }, { "$ref": "#/$defs/gap" } ] }
+      }
+    },
+    "gap": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["reason", "capability"],
+      "properties": {
+        "reason": {
+          "description": "WHY the capability is unmet — a typed reason (sibling of the Constraint Resolution Engine's 'which constraint blocks'). Never 'no solution' with no cause.",
+          "enum": ["no_engine_provides_capability", "insufficient_strength", "safety_incompatible", "unmet_dependency"]
+        },
+        "capability": { "type": "string" },
+        "primitive": { "$ref": "#/$defs/primitive" },
+        "requiredStrength": { "type": "integer" },
+        "bestAvailable": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": { "engine": { "type": ["string", "null"] }, "strength": { "type": "integer" } }
+        },
+        "note": { "type": "string" }
+      }
+    }
+  }
+}

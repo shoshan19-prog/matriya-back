@@ -272,6 +272,49 @@ If activated later, they slot under the Innovation Layer (13) + Combination
 Discovery (16), share the Learning Priority Engine (19) for ΔK ranking, and are
 governed by Principle 4 (nothing auto-validates) and the contract safety envelope.
 
+### Architecture backlog — the Five-Space solution model + Constraint Physics
+
+A structural refinement of how solution-discovery flows (recorded, not yet built).
+Today the implicit path is `Requirements → Optimization → Formula` — too big a
+jump. The refined model separates *values* from *physics* into ordered spaces,
+each derived from the one above:
+
+```
+Value Space        — what the user wants (hydrophobicity, breathability, cost, fire…) — NO chemistry
+   ↓ Constraint Space   — which value-pairs actually conflict, and WHY (typed constraints)
+   ↓ Mechanism Space    — which mechanisms drive each value (fire → intumescence → acid/carbon/blowing)
+   ↓ Material Space      — only now do materials appear (silane → Protectosil/Dynasylan…)
+   ↓ Formulation Space   — ratios, sequence, process
+   ↓ Innovation Space    — which constraint can be broken by a NEW mechanism (paradigm break)
+```
+
+Why it matters: the system is built on **mechanisms, not suppliers** — if BASF
+exits the market, the mechanism stands and another material realises it. Materials
+are chosen *last*, and only to realise a chosen mechanism.
+
+**Constraint Physics.** Not every conflicting value-pair is "a trade-off"; each
+belongs to a different world and is resolved differently. Trade-offs are typed:
+**physical · chemical · process · economic · environmental · regulatory · human**
+(e.g. hydrophobicity↑ vs. vapor-permeability↓ is *physical*; cost vs. performance
+is *economic*; VOC vs. application is *regulatory*).
+
+**Constraint Resolution Engine** (future). Instead of "no solution found", it
+reports *which* constraint blocks: `physical_contradiction` /
+`economic_contradiction` / `insufficient_knowledge` / `supplier_limitation` —
+four completely different answers. This is the same discipline as the Capability
+Planner's typed gap reporting (`docs/task-contract/CapabilityPlanner.md`): never a
+blank "no", always *why*.
+
+**Innovation Space** (future, high-value). When current mechanisms make a
+value-pair *impossible*, the engine does not keep optimising a contradiction — it
+flags **Paradigm Break Required** and searches other industries (medicine,
+aerospace, nanotech, batteries, biology) for a mechanism that breaks the
+constraint. This maps directly onto **FSCTM**: when Constraint Space finds no
+solution in the current mechanism space, that is exactly the trigger for stage **B
+(Breakdown) → N (New idea)** — stop optimising a solution that cannot exist, and
+cross into a new mechanism. Governed, as ever, by Principle 4 and the contract
+safety envelope (everything generated is a hypothesis).
+
 ## II.1 Confidence Engine
 
 **Status: 🟡 FITS ARCH.** Confidence is *stored* today; the engine that

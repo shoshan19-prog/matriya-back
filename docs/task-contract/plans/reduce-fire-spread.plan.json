@@ -1,0 +1,263 @@
+{
+  "apiVersion": "capability-planner/v1.0",
+  "planId": "plan-reduce-fire-spread-001",
+  "task": {
+    "taskId": "task-reduce-fire-spread",
+    "taskType": "solution_discovery",
+    "referencesEngines": false
+  },
+  "status": "planned",
+  "steps": [
+    {
+      "nodeId": "n1",
+      "capability": "observe",
+      "minStrength": 4,
+      "requiredPrimitives": [
+        "observe"
+      ],
+      "assignments": [
+        {
+          "primitive": "observe",
+          "engine": "ikl-search",
+          "strength": 5,
+          "emits": [
+            "observation",
+            "evidence"
+          ],
+          "rationale": "capability observe=5>=min4; pure"
+        }
+      ],
+      "plannedEmissions": [
+        "observation",
+        "evidence"
+      ],
+      "covered": true,
+      "gap": null
+    },
+    {
+      "nodeId": "n2",
+      "capability": "compare",
+      "minStrength": 3,
+      "requiredPrimitives": [
+        "observe",
+        "explain"
+      ],
+      "assignments": [
+        {
+          "primitive": "observe",
+          "engine": "ikl-search",
+          "strength": 5,
+          "emits": [
+            "observation",
+            "evidence"
+          ],
+          "rationale": "capability observe=5>=min3; pure"
+        },
+        {
+          "primitive": "explain",
+          "engine": "recommendation",
+          "strength": 4,
+          "emits": [
+            "recommendation",
+            "trade_off",
+            "risk",
+            "confidence",
+            "missing_evidence",
+            "explanation"
+          ],
+          "rationale": "capability explain=4>=min3; pure"
+        }
+      ],
+      "plannedEmissions": [
+        "observation",
+        "evidence",
+        "recommendation",
+        "trade_off",
+        "risk",
+        "confidence",
+        "missing_evidence",
+        "explanation"
+      ],
+      "covered": true,
+      "gap": null
+    },
+    {
+      "nodeId": "n3",
+      "capability": "generate",
+      "minStrength": 4,
+      "requiredPrimitives": [
+        "generate"
+      ],
+      "assignments": [
+        {
+          "primitive": "generate",
+          "engine": "combination-discovery",
+          "strength": 5,
+          "emits": [
+            "candidate",
+            "prediction",
+            "trade_off",
+            "risk",
+            "confidence",
+            "missing_evidence"
+          ],
+          "rationale": "capability generate=5>=min4; hypothesis+human-gated (safety); pure"
+        }
+      ],
+      "plannedEmissions": [
+        "candidate",
+        "prediction",
+        "trade_off",
+        "risk",
+        "confidence",
+        "missing_evidence"
+      ],
+      "covered": true,
+      "gap": null
+    },
+    {
+      "nodeId": "n4",
+      "capability": "validate",
+      "minStrength": 3,
+      "requiredPrimitives": [
+        "validate"
+      ],
+      "assignments": [
+        {
+          "primitive": "validate",
+          "engine": "knowledge-event",
+          "strength": 4,
+          "emits": [
+            "candidate",
+            "evidence",
+            "confidence"
+          ],
+          "rationale": "capability validate=4>=min3; stateful"
+        }
+      ],
+      "plannedEmissions": [
+        "candidate",
+        "evidence",
+        "confidence"
+      ],
+      "covered": true,
+      "gap": null
+    },
+    {
+      "nodeId": "n5",
+      "capability": "explain",
+      "minStrength": 3,
+      "requiredPrimitives": [
+        "explain"
+      ],
+      "assignments": [
+        {
+          "primitive": "explain",
+          "engine": "recommendation",
+          "strength": 4,
+          "emits": [
+            "recommendation",
+            "trade_off",
+            "risk",
+            "confidence",
+            "missing_evidence",
+            "explanation"
+          ],
+          "rationale": "capability explain=4>=min3; pure"
+        }
+      ],
+      "plannedEmissions": [
+        "recommendation",
+        "trade_off",
+        "risk",
+        "confidence",
+        "missing_evidence",
+        "explanation"
+      ],
+      "covered": true,
+      "gap": null
+    }
+  ],
+  "edges": [
+    {
+      "from": "n1",
+      "to": "n2"
+    },
+    {
+      "from": "n2",
+      "to": "n3"
+    },
+    {
+      "from": "n3",
+      "to": "n4"
+    },
+    {
+      "from": "n4",
+      "to": "n5"
+    }
+  ],
+  "workspacePlan": {
+    "terminal": "decision-workspace",
+    "sections": {
+      "alternatives": [
+        "n2:recommendation",
+        "n3:candidate",
+        "n4:candidate",
+        "n5:recommendation"
+      ],
+      "tradeOffs": [
+        "n2:trade_off",
+        "n3:trade_off",
+        "n5:trade_off"
+      ],
+      "risks": [
+        "n2:risk",
+        "n3:risk",
+        "n5:risk"
+      ],
+      "evidenceQuality": [
+        "n1:observation",
+        "n1:evidence",
+        "n2:observation",
+        "n2:evidence",
+        "n2:confidence",
+        "n3:confidence",
+        "n4:evidence",
+        "n4:confidence",
+        "n5:confidence"
+      ],
+      "uncertainty": [
+        "n2:confidence",
+        "n2:missing_evidence",
+        "n3:confidence",
+        "n3:missing_evidence",
+        "n4:confidence",
+        "n5:confidence",
+        "n5:missing_evidence"
+      ],
+      "missingEvidence": [
+        "n2:missing_evidence",
+        "n3:missing_evidence",
+        "n5:missing_evidence"
+      ],
+      "whatIf": [
+        "n3:prediction"
+      ]
+    }
+  },
+  "decisionBoundary": {
+    "plannerSelectsDecision": false,
+    "assemblesWorkspaceInputs": true,
+    "humanDecisionExternal": true
+  },
+  "gaps": [],
+  "executed": false,
+  "selectionCriteria": [
+    "1 capability match (strength>=minStrength, hard filter)",
+    "2 safety compatibility (task safety envelope; generate=>hypothesis+human_gated)",
+    "3 reasoning fit (confidenceType/class appropriate to capability)",
+    "4 purity (prefer pure for retriable/parallel steps)",
+    "5 cost then latency (tie-break)",
+    "6 determinism/reproducibility (auditability)"
+  ]
+}
