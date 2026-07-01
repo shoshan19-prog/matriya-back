@@ -15,6 +15,7 @@ import { authRouter, getCurrentUser, requireAuth } from './authEndpoints.js';
 import DocumentProcessor from './documentProcessor.js';
 import axios from 'axios';
 import { adminRouter } from './adminEndpoints.js';
+import { iklRouter } from './iklEndpoints.js';
 import { StateMachine, Kernel } from './stateMachine.js';
 import {
   validateAndAdvance,
@@ -118,6 +119,8 @@ if (!process.env.VERCEL) {
 // Register routers
 app.use('/auth', authRouter);
 app.use('/admin', adminRouter);
+// Industrial Knowledge Library (external scientific reference layer, separated from Fresco)
+app.use('/ikl', iklRouter);
 
 // Initialize RAG service (lazy initialization to avoid blocking startup)
 let ragService = null;
