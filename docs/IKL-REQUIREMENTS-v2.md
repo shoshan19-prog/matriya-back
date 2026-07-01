@@ -405,6 +405,31 @@ understanding. This is one of the platform's strongest differentiators: it shows
   are *external IKL*. The engine must visually distinguish external vs. internal
   vs. hypothesis and never merge them into one record.
 
+### Design north-stars (future UX — not requirements yet)
+
+Aspirational experience directions for Engines 27–28, captured so they are not
+lost. They are *design philosophy*, not committed features, and all remain bound
+by the guardrails above (nothing rendered may outrun its provenance):
+
+- **Chronos Lens — time as texture.** Time is grabbable, not a slider: drag the
+  future into the present and watch aging happen (cracks form, colour fades,
+  salts bloom); drag back to synthesis. UI light-temperature shifts warm→future,
+  cool→past. Turns "durability over time" into a felt dimension. (Renders only
+  sourced aging/weathering data — Layer 9 + Engine 17.)
+- **Bio-Mimetic feedback — a living interface.** Relevant data "breathes"
+  (expands); irrelevant data softens but never disappears. Attempting a
+  known-to-fail formulation meets subtle cursor resistance + a vibration (like a
+  locked handle); connections glow with the *strength of evidence* (confidence).
+- **Collective Consciousness — organizational mind.** Each Fresco researcher is a
+  point of light whose brightness = their expertise in the current material;
+  unsolved questions from many users coalesce into autonomous **Knowledge Gaps**
+  (Engine 22); contradictory mechanisms (hydrophobic vs. hydrophilic) render as
+  wave interference, flagging a paradox for team discussion. (Internal-domain and
+  people data — governed by Principle 5 and access control.)
+
+These raise the bar for the *visualization* engines specifically; they do not
+change any engine's contract or the knowledge model.
+
 ---
 
 # Part II+ — Orchestration Tier (the decision layer)

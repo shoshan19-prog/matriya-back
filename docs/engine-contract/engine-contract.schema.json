@@ -1,0 +1,228 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://matriya.example/schemas/engine-contract/v0.1.json",
+  "title": "MATRIYA Engine Contract",
+  "description": "Manifest that every Industrial Intelligence Platform engine MUST publish. It is a self-describing declaration — NOT runtime code and NOT an orchestrator. An engine that validates against this schema can be composed as a plug-and-play module. DRAFT v0.1 — documentation only; no runtime behaviour is implied or changed by this file.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "apiVersion",
+    "name",
+    "version",
+    "purpose",
+    "stateless",
+    "sideEffects",
+    "consumes",
+    "produces",
+    "confidence",
+    "cost",
+    "latency",
+    "dependencies",
+    "failureModes"
+  ],
+  "properties": {
+    "apiVersion": {
+      "description": "Contract format version. Pins the manifest to a schema revision.",
+      "const": "engine-contract/v0.1"
+    },
+    "name": {
+      "description": "Stable, unique engine id (kebab-case, dot-namespaced allowed).",
+      "type": "string",
+      "pattern": "^[a-z0-9]+([-.][a-z0-9]+)*$",
+      "minLength": 2
+    },
+    "displayName": { "type": "string" },
+    "version": {
+      "description": "Engine semantic version.",
+      "type": "string",
+      "pattern": "^\\d+\\.\\d+\\.\\d+([-+].+)?$"
+    },
+    "purpose": {
+      "description": "One sentence: what this engine does.",
+      "type": "string",
+      "minLength": 8
+    },
+    "category": {
+      "description": "Informational grouping (search, comparison, recommendation, visualization, ...). Free text; never used for wiring.",
+      "type": "string"
+    },
+    "stateless": {
+      "description": "MUST be true. An engine is Input -> Output and retains no per-call state and no knowledge of who called it or what runs next. Infra memoization (connection pools, model caches) is NOT engine state.",
+      "const": true
+    },
+    "deterministic": {
+      "description": "Whether identical input + identical knowledge-base snapshot yields identical output. Search is approximately deterministic (ANN index ordering may vary).",
+      "type": "boolean"
+    },
+    "sideEffects": {
+      "description": "Effect on the world. Reasoning/search engines should be 'none' or 'read'. 'write' engines must document what they mutate.",
+      "enum": ["none", "read", "write"]
+    },
+    "consumes": {
+      "description": "Typed inputs. The Composer wires engines by matching a producer's `produces[].type` to a consumer's `consumes[].type`.",
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/$defs/port" }
+    },
+    "produces": {
+      "description": "Typed outputs (usually one). Each output is delivered inside the standard result envelope (see EngineContract.md).",
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/$defs/port" }
+    },
+    "confidence": {
+      "description": "How this engine expresses confidence in its output.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["emits", "scale"],
+      "properties": {
+        "emits": {
+          "description": "Whether outputs carry a confidence value.",
+          "type": "boolean"
+        },
+        "scale": {
+          "description": "Confidence scale. '0..1' is the platform default.",
+          "enum": ["0..1", "none"]
+        },
+        "granularity": {
+          "description": "Where confidence attaches: per produced item, per result set, or both.",
+          "enum": ["item", "set", "both"]
+        },
+        "method": {
+          "description": "How confidence is derived (e.g. 'cosine_similarity', 'source_tier', 'model_prob'). Names its meaning so downstream can calibrate.",
+          "type": "string"
+        },
+        "calibrated": {
+          "description": "True only if the value is a calibrated probability, not a raw score.",
+          "type": "boolean"
+        },
+        "notes": { "type": "string" }
+      }
+    },
+    "cost": {
+      "description": "Declared cost envelope so the Composer can plan.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["model", "unit"],
+      "properties": {
+        "model": { "enum": ["relative", "absolute"] },
+        "unit": {
+          "description": "e.g. 'compute-units', 'usd', 'tokens', 'db-queries'.",
+          "type": "string"
+        },
+        "estimate": {
+          "description": "Typical cost per invocation in `unit`. May be null if unmeasured.",
+          "type": ["number", "null"]
+        },
+        "notes": { "type": "string" }
+      }
+    },
+    "latency": {
+      "description": "Declared latency envelope. Values MAY be null until measured.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["unit"],
+      "properties": {
+        "unit": { "const": "ms" },
+        "p50": { "type": ["number", "null"] },
+        "p95": { "type": ["number", "null"] },
+        "max": { "type": ["number", "null"] },
+        "notes": { "type": "string" }
+      }
+    },
+    "dependencies": {
+      "description": "External resources the engine needs. NEVER another engine's code (statelessness) — data stores, indexes, models, host services only.",
+      "type": "array",
+      "items": { "$ref": "#/$defs/dependency" }
+    },
+    "failureModes": {
+      "description": "Enumerated, stable failure codes and what the engine returns for each. A compliant engine fails as data (typed), not as an unhandled exception.",
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/$defs/failureMode" }
+    },
+    "provenance": {
+      "description": "How outputs preserve provenance (platform Principle: no orphan knowledge).",
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "carriesProvenance": { "type": "boolean" },
+        "notes": { "type": "string" }
+      }
+    },
+    "domainSeparation": {
+      "description": "Which knowledge domain(s) the engine reads/writes; must respect external/internal/hypothesis separation.",
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "reads": {
+          "type": "array",
+          "items": { "enum": ["external", "internal", "hypothesis"] }
+        },
+        "writes": {
+          "type": "array",
+          "items": { "enum": ["external", "internal", "hypothesis", "none"] }
+        }
+      }
+    }
+  },
+  "$defs": {
+    "port": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "type", "cardinality"],
+      "properties": {
+        "name": { "type": "string" },
+        "type": {
+          "description": "Named type id used for composition, e.g. 'ikl.SearchQuery@1'. Two ports connect only if their type ids match.",
+          "type": "string",
+          "pattern": "^[a-z0-9]+(\\.[a-z0-9]+)*\\.[A-Za-z0-9]+@\\d+$"
+        },
+        "cardinality": { "enum": ["one", "many"] },
+        "required": {
+          "description": "For inputs: whether the port must be supplied.",
+          "type": "boolean"
+        },
+        "schema": {
+          "description": "Inline JSON Schema for the payload, OR use `schemaRef`.",
+          "type": "object"
+        },
+        "schemaRef": {
+          "description": "URI of an external JSON Schema for the payload.",
+          "type": "string"
+        },
+        "description": { "type": "string" }
+      }
+    },
+    "dependency": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "kind", "required"],
+      "properties": {
+        "name": { "type": "string" },
+        "kind": { "enum": ["datastore", "index", "model", "service", "config"] },
+        "required": { "type": "boolean" },
+        "notes": { "type": "string" }
+      }
+    },
+    "failureMode": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["code", "condition", "result"],
+      "properties": {
+        "code": {
+          "description": "Stable machine code, SCREAMING_SNAKE, e.g. 'E_QUERY_REQUIRED'.",
+          "type": "string",
+          "pattern": "^E_[A-Z0-9_]+$"
+        },
+        "condition": { "type": "string" },
+        "result": {
+          "description": "What the engine returns in this mode (e.g. 'empty result set', 'failed envelope with code').",
+          "type": "string"
+        },
+        "severity": { "enum": ["degraded", "empty", "error"] },
+        "recoverable": { "type": "boolean" }
+      }
+    }
+  }
+}
