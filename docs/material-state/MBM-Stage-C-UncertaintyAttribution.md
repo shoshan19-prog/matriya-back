@@ -90,9 +90,11 @@ attribution does. That difference is exactly what an experiment planner needs.
 ## Stage C roadmap
 
 C.1 Alternative Path Generator ✅ · **C.2 Uncertainty Attribution ✅** · C.3
-Information Gain Engine (expected uncertainty reduction per measurement) · C.4
-Experiment Planner (IG ÷ cost×time → best next experiment) · C.5 Historical
-Learning (update source-reliability from past runs).
+Information Gain Engine ✅ (expected uncertainty reduction per measurement — see
+`MBM-Stage-C-InformationGain.md`) · C.4 Experiment Planner (IG ÷ cost×time → best
+next experiment) · C.5 Historical Learning (update source-reliability from past
+runs) · C.6 Reliability-Gated Decision Hand-off · C.7 Uncertainty Budget Burndown
+· C.8 Knowledge Tension Map · C.9 Explicit Epistemic State.
 
 ### Two integrating ideas (added to the roadmap)
 

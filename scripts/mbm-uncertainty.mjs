@@ -48,7 +48,7 @@ export function attributeUncertainty(doc, ids) {
     weakLink: `the path is bottlenecked by ${weakest.id} (${weakest.reason}) — target it specifically`
   }[dominant];
 
-  return { ids, mri: mriObj.mri, components, dominant, recommendation, weakest };
+  return { ids, mri: mriObj.mri, raw, components, dominant, recommendation, weakest };
 }
 
 // --- direct run: demo + self-consistency ------------------------------------
