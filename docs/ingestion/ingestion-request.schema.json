@@ -1,0 +1,99 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "matriya/ingestion/ingestion-request/v1",
+  "title": "MATRIYA Failure-KB Ingestion Request",
+  "description": "DESIGN artifact (contract) for the human-in-the-loop ingestion pipeline that turns a real source into a grounded Failure Case. This is a schema + gate contract, NOT a running ingestion: no fetch, no broad corpus. Its purpose is to make the pipeline's gates explicit and checkable — provenance confirmation, per-claim citation anchoring (the anti-invented-chemistry gate), evidence grading, MBM mapping, and dual-control sign-off.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["requestId", "submittedBy", "submittedAt", "rawSource", "provenanceReview", "proposedCase", "citationAnchors", "mbmMapping", "signoff", "promotion"],
+  "properties": {
+    "requestId": { "type": "string", "pattern": "^ingest_[a-z0-9_]+$" },
+    "submittedBy": { "type": "string", "minLength": 2, "description": "a human submitter — the pipeline never auto-fetches or auto-submits." },
+    "submittedAt": { "type": "string", "description": "ISO date supplied by the caller (no wall clock in the engine)." },
+    "rawSource": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type", "identifier", "title"],
+      "properties": {
+        "type": { "enum": ["standard", "scientific_paper", "patent", "technical_report", "textbook", "field_report"] },
+        "identifier": { "type": "string", "description": "DOI, standard designation, patent no., or report id — the checkable handle." },
+        "title": { "type": "string" },
+        "authors": { "type": ["string", "null"] },
+        "year": { "type": ["string", "number", "null"] },
+        "license": { "type": ["string", "null"], "description": "copyright/licensing of the source — required before storing text." },
+        "accessRights": { "type": ["string", "null"] }
+      }
+    },
+    "provenanceReview": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status", "reviewer", "identifierConfirmed", "editionOrDoiConfirmed"],
+      "properties": {
+        "status": { "enum": ["pending", "confirmed", "rejected"] },
+        "reviewer": { "type": "string" },
+        "identifierConfirmed": { "type": "boolean" },
+        "editionOrDoiConfirmed": { "type": "boolean", "description": "exact edition (standard) or DOI (paper) confirmed by a human." },
+        "note": { "type": ["string", "null"] }
+      }
+    },
+    "evidenceQuality": { "enum": ["instruments", "standard", "scientific_paper", "patent", "field_report", "anecdotal", null] },
+    "proposedCase": {
+      "type": "object",
+      "description": "the candidate Failure Case (validated against failure-case.schema.json at promotion). Every scientific claim must be backed by a confirmed citation anchor.",
+      "required": ["claimedMechanism", "observedSymptoms", "mappedMBM"],
+      "properties": {
+        "claimedMechanism": { "type": "string" },
+        "observedSymptoms": { "type": "array", "items": { "type": "string" } },
+        "cascade": { "type": "array", "items": { "type": "string" } },
+        "antiConditions": { "type": "array", "items": { "type": "string" } },
+        "mappedMBM": { "type": "object" },
+        "brokenInvariant": { "type": ["string", "null"] }
+      }
+    },
+    "citationAnchors": {
+      "type": "array",
+      "description": "the anti-invented-chemistry gate: each scientific claim traces to a verbatim span in the source, confirmed by a human. A claim with no confirmed anchor is rejected.",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["field", "locator", "quote", "confirmed"],
+        "properties": {
+          "field": { "type": "string", "description": "which proposedCase field this anchor supports (e.g. claimedMechanism, observedSymptoms, mappedMBM, antiConditions)." },
+          "locator": { "type": "string", "description": "page/section/figure in the source." },
+          "quote": { "type": "string", "minLength": 3, "description": "verbatim span from the source supporting the claim." },
+          "confirmed": { "type": "boolean", "description": "a human confirmed the anchor actually supports the claim." }
+        }
+      }
+    },
+    "mbmMapping": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["confirmedBy"],
+      "properties": {
+        "confirmedBy": { "type": "string" },
+        "proposesNewState": { "type": ["boolean", "null"] },
+        "proposesNewTransition": { "type": ["boolean", "null"] },
+        "note": { "type": ["string", "null"] }
+      }
+    },
+    "signoff": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status", "reviewer1", "reviewer2"],
+      "properties": {
+        "status": { "enum": ["pending", "signed", "rejected"] },
+        "reviewer1": { "type": ["string", "null"] },
+        "reviewer2": { "type": ["string", "null"], "description": "dual control — must differ from reviewer1." }
+      }
+    },
+    "promotion": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status"],
+      "properties": {
+        "status": { "enum": ["quarantined", "promoted", "rejected"] },
+        "resultingFlag": { "enum": ["sourced", null] }
+      }
+    }
+  }
+}
