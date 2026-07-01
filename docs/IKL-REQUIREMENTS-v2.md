@@ -315,6 +315,53 @@ solution in the current mechanism space, that is exactly the trigger for stage *
 cross into a new mechanism. Governed, as ever, by Principle 4 and the contract
 safety envelope (everything generated is a hypothesis).
 
+### Architecture backlog — Material State Space + Material Transformation Engine
+
+The deepest missing substrate (recorded, not built). Today knowledge flows
+`Documents → Embeddings → Graph`. But chemistry does not work like that; it works
+like physics:
+
+```
+Energy → Interface → Mechanism → Structure → Properties → Performance → Failure
+```
+
+So "600°C" should not be *searched* as the string "600 degrees" — it should be
+*inferred* as a cascade:
+
+```
+Energy ↑ → bond energy exceeded → polymer decomposition → gas evolution
+        → char formation → porosity change → thermal-conductivity change
+        → mechanical-strength change
+```
+
+That is not RAG; it is the physics of the material. Two pieces:
+
+- **Material State Space** — a new *knowledge layer* (a peer of the 14 IKL
+  layers, sitting UNDER Mechanism Space in the Five-Space model and realising
+  Interface Physics / Engine 30 at the state level). Nodes = material states
+  (e.g. epoxy: glassy → rubbery → chain-scission → carbonised); edges = sourced
+  transitions `{ from_state, to_state, driver (energy/humidity/pressure),
+  threshold, mechanism, provenance, confidence }`. Examples:
+  `Silane + humidity → hydrolysis → condensation → siloxane network`;
+  `Pressure → crystal rearrangement → density → elastic modulus`. Every
+  transition carries provenance — **no invented chemistry** (Principle 7); every
+  state change traces to a source.
+- **Material Transformation Engine** — an engine (Engine Contract v1.1,
+  `reasoning.class: simulation` — already in the frozen enum) that *traverses*
+  the State Space to infer the cascade from `State + Energy/Environment input`.
+  It **predicts**, it does not retrieve; its outputs are hypotheses/predictions
+  under the same safety envelope (`emits: prediction, explanation, …` — never a
+  decision), with per-step provenance and uncertainty.
+
+Why it is the next leap: it turns every evidence modality into one model — TGA,
+DSC, FTIR, XRD, SEM, patents, papers, formulations all describe the *same thing*,
+`Material → Energy → Transformation → Properties`. It also completes the FSCTM
+tie: a requested transformation with **no known path** in the State Space is a
+*conflict* → **breakdown** → **recombination** → a candidate new mechanism
+(paradigm break), exactly the "identify conflict, structural breakdown and
+recombine before forming a new law" principle. This is the shift from a system
+that *retrieves information* to one that *understands how a material changes*.
+
 ## II.1 Confidence Engine
 
 **Status: 🟡 FITS ARCH.** Confidence is *stored* today; the engine that
@@ -844,24 +891,34 @@ confidence and marks generated content as hypothesis).
 
 # Part V — Implementation status & incremental build order
 
-## V.1 Where we are
+## V.1 Where we are — achieved vs. vision (kept strictly separate)
 
-- **Knowledge base:** ✅ substantially complete (Layers 1–13, Layer 14 partial;
-  provenance, versioning, separation, confidence storage).
-- **Engines:** 🟢 only Engine 1 (Industrial Search) partially shipped
-  (semantic search + bulk import + reindex). Engines 2–30 not built.
-- **Orchestration tier (II+):** 🟠 not built. The **first** deliverable here is
-  the Engine Contract (II+.0), then the Composer (II+.1) — *not* an Orchestrator
-  that hard-knows the engines. This is the phase the project is now entering.
-- **Interface Physics (30):** 🔭 the substrate all engines share — the interface
-  model (Engine 20) is laid down early; the physics matures late.
-- **Meta-Learning (26):** 🔭 apex — the competitive moat; built last, from years
-  of accumulated Industrial Memory.
-- **Future vision:** 🔭 substrate only (closed research loop).
+**Achieved (real, in the repo):**
+- **Knowledge base:** ✅ IKL Layers 1–13 (14 partial); provenance, versioning,
+  Fresco separation, semantic search, bulk import — running.
+- **A shared language (standards locked & schema-validated against real
+  instances):** Engine Contract **v1.1** (+ 4 engine instances spanning
+  retrieval/evidential/generative/recommendation), Capability Ontology v1.0,
+  Scientific Task Contract v1.0, Decision Workspace v1.0, Capability Planner v1.0.
+- **The architecture runs at one point:** ✅ **G7** — `runSearch(input, ctx) →
+  Result` executes under Engine Contract v1.1 (Task→Capability→Engine→Result is
+  real, tested, behaviour-preserving). See `iklSearchEngine.js`.
+- **Epistemic boundary:** ✅ the Decision Boundary is structural — no engine can
+  emit a decision (validated + negative-tested).
+
+**Vision (paper or unbuilt):**
+- Engines 2–30 exist only as **paper contracts** (Knowledge Event, Combination
+  Discovery, Recommendation) — only Search *runs*.
+- 🟠 The **Composer/executor** (planner is paper; nothing executes a multi-node
+  plan yet), IKL ingestion of real data, Scientific UX.
+- 🔭 Interface Physics (30), Meta-Learning (26), Industrial Memory, the Five-Space
+  model, and the **Material State Space + Material Transformation Engine** (the
+  physics substrate — the proposed next leap).
 
 Delivered artifacts (in `matriya-back`): `iklModels.js`, `iklEndpoints.js`,
-`iklVectorStore.js`, `sql/industrial_knowledge_library.sql`,
-`scripts/seed-ikl-vocabulary.js`, mounted at `/ikl`.
+`iklVectorStore.js`, `iklSearchEngine.js`, `sql/industrial_knowledge_library.sql`,
+`scripts/seed-ikl-vocabulary.js`, `scripts/test-run-search-g7.mjs`, mounted at
+`/ikl`; plus the standards under `docs/engine-contract/` and `docs/task-contract/`.
 
 ## V.2 Recommended build order
 
