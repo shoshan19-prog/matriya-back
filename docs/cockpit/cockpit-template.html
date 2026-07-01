@@ -80,15 +80,25 @@ document.getElementById('flag').textContent = S.flag || '';
 const esc = (x) => String(x==null?'':x);
 const toast = (m) => { const t=document.getElementById('toast'); t.textContent=m; t.classList.add('show'); setTimeout(()=>t.classList.remove('show'),2600); };
 
+let currentIdx = 0;
+function setDataset(i){ currentIdx=+i; render('cockpit'); }
 function cockpit() {
-  const c = S.cockpit;
-  const gates = Object.entries(c.gates).map(([g,v])=>`<span class="chip ${v?'ok':''}">${g.split('_')[0]} ${v?'✓':'✗'}</span>`).join('');
+  const list = S.datasets || [S.cockpit];
+  const c = list[currentIdx] || list[0];
+  const opts = list.map((d,i)=>`<option value="${i}" ${i===currentIdx?'selected':''}>${esc(d.project)}</option>`).join('');
+  const selector = list.length>1?`<div style="margin-bottom:12px"><label class="muted">Dataset: </label><select onchange="setDataset(this.value)" style="background:#182238;color:#e6edf6;border:1px solid #243149;border-radius:8px;padding:6px 10px">${opts}</select></div>`:'';
+  const gates = c.gates ? Object.entries(c.gates).map(([g,v])=>`<span class="chip ${v?'ok':''}">${g.split('_')[0]} ${v?'✓':'✗'}</span>`).join('')
+    : '<span class="chip">G1–G6: לא הוגשה בקשת ingestion — לא ניתן להטיס</span>';
+  // decision counter (encodes the ≥3-real-uses → Tab rule)
+  let dcount=0; try{ dcount=JSON.parse(localStorage.getItem('cockpit.count.'+c.id)||'0'); }catch(e){}
+  const tabHint = `שימושי החלטה אמיתיים: <b>${dcount}</b> / 3 → ${dcount>=3?'מומלץ לחבר כ-Tab':'נשאר standalone'}`;
   const oc = c.observationClasses, tot = Math.max(1, oc.observation+oc.context+oc.surprise+oc.artifact);
   const bar = (label,n,color)=>`<div class="row"><span>${label}</span><span>${n}</span></div><div class="bar"><span style="width:${100*n/tot}%;background:${color}"></span></div>`;
   return `
+  ${selector}
   <div class="card" style="margin-bottom:14px">
     <div class="row"><div class="big">${esc(c.project)}</div><span class="badge ${c.verdict}">${c.verdict}</span></div>
-    <div class="muted">data: ${esc(c.dataFlag)} · promotion: <b>${c.promotion}</b> · accuracy: ${(c.accuracy*100).toFixed(0)}%</div>
+    <div class="muted">data: ${esc(c.dataFlag)} · promotion: <b>${c.promotion}</b> · accuracy: ${(c.accuracy*100).toFixed(0)}%${c.newRegion?' · <span style="color:#f4b740">NEW REGION</span>':''}</div>
   </div>
   <div class="grid">
     <div class="card"><h3>Flight Status — G1–G6</h3><div class="chips">${gates}</div>
@@ -111,15 +121,16 @@ function cockpit() {
       <ul class="q">${c.coPilotQuestions.map(q=>`<li>${esc(q)}</li>`).join('')}</ul></div>
     <div class="card" style="grid-column:1/-1"><h3>Human Decision</h3>
       <div class="btns">
-        <button class="accept" onclick="decide('Accept')">Accept</button>
-        <button class="reject" onclick="decide('Reject')">Reject</button>
-        <button class="evidence" onclick="decide('Need Evidence')">Need Evidence</button>
+        <button class="accept" onclick="decide('${esc(c.id)}','Accept')">Accept</button>
+        <button class="reject" onclick="decide('${esc(c.id)}','Reject')">Reject</button>
+        <button class="evidence" onclick="decide('${esc(c.id)}','Need Evidence')">Need Evidence</button>
       </div>
-      <div class="muted" style="margin-top:8px">הכפתורים מתעדים מקומית בלבד. אינטגרציה אמיתית שולחת לתור הסקירה (G6) — המנוע לעולם לא משנה את המודל אוטונומית.</div>
+      <div class="muted" style="margin-top:8px">${tabHint}</div>
+      <div class="muted" style="margin-top:4px">הכפתורים מתעדים מקומית בלבד. אינטגרציה אמיתית שולחת לתור הסקירה (G6) — המנוע לעולם לא משנה את המודל אוטונומית.</div>
     </div>
   </div>`;
 }
-function decide(x){ try{ localStorage.setItem('cockpit.decision.'+(S.cockpit.project||'p'), JSON.stringify({decision:x,at:new Date().toISOString()})); }catch(e){} toast('נרשם מקומית: '+x+' — יישלח לתור הסקירה האנושית (G6).'); }
+function decide(id,x){ try{ let n=JSON.parse(localStorage.getItem('cockpit.count.'+id)||'0'); localStorage.setItem('cockpit.count.'+id, JSON.stringify(n+1)); localStorage.setItem('cockpit.decision.'+id, JSON.stringify({decision:x})); }catch(e){} toast('נרשם מקומית: '+x+' — יישלח לתור הסקירה האנושית (G6).'); render('cockpit'); }
 
 function timeline() {
   const t = S.timeline;

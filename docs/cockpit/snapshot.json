@@ -2,7 +2,8 @@
   "generated": "cockpit snapshot — projection of existing engines (no new capability)",
   "flag": "illustrative (numeric values reference-class; provenance grounded in real standards)",
   "cockpit": {
-    "project": "APP/PER/MEL Intumescent — Dataset 001",
+    "id": "dataset_001_app_per_mel",
+    "project": "APP / pentaerythritol / melamine intumescent — dataset_001_app_per_mel",
     "dataFlag": "illustrative",
     "gates": {
       "G1_humanSubmitter": true,
@@ -19,6 +20,7 @@
     ],
     "promotion": "OFF",
     "accuracy": 0.75,
+    "newRegion": false,
     "observationClasses": {
       "observation": 4,
       "context": 1,
@@ -31,17 +33,124 @@
       "epistemic": "Corroborated"
     },
     "proposedHypothesis": {
-      "text": "char oxidation near 350 °C (unexpected endotherm)",
+      "text": "unexpected endotherm near 350 °C",
       "epistemic": "Hypothesized",
       "adversarial": "fail_app_char_oxidation"
     },
-    "nextExperiment": "Increase DSC/TGA sampling 330–360 °C (in air) to resolve the 350 °C surprise",
+    "nextExperiment": "Increase DSC/TGA sampling 330–360 °C to resolve the 350 °C surprise",
     "coPilotQuestions": [
       "does the DSC show the compensating entropy/enthalpy change expected along app:solid → app:polyphosphoric_acid → app:char?",
       "no observation near 280 °C for \"crosslinking route\" — was this step present under these conditions?",
       "unexpected endotherm at 350 °C — which mechanism produces it?"
     ]
   },
+  "datasets": [
+    {
+      "id": "dataset_001_app_per_mel",
+      "project": "APP / pentaerythritol / melamine intumescent — dataset_001_app_per_mel",
+      "dataFlag": "illustrative",
+      "gates": {
+        "G1_humanSubmitter": true,
+        "G2_provenanceConfirmed": true,
+        "G3_evidenceGraded": true,
+        "G4_noInventedChemistry": true,
+        "G5_mbmMappingConfirmed": true,
+        "G6_dualSignoff": true
+      },
+      "promotable": true,
+      "verdict": "STOP",
+      "verdictReasons": [
+        "surprise cross-flagged against the failure corpus — escalate to Experiment Planner (C.4): o4"
+      ],
+      "promotion": "OFF",
+      "accuracy": 0.75,
+      "newRegion": false,
+      "observationClasses": {
+        "observation": 4,
+        "context": 1,
+        "surprise": 1,
+        "artifact": 0
+      },
+      "topHypothesis": {
+        "route": "app:solid → app:polyphosphoric_acid → app:char",
+        "mri": 0.4041,
+        "epistemic": "Corroborated"
+      },
+      "proposedHypothesis": {
+        "text": "unexpected endotherm near 350 °C",
+        "epistemic": "Hypothesized",
+        "adversarial": "fail_app_char_oxidation"
+      },
+      "nextExperiment": "Increase DSC/TGA sampling 330–360 °C to resolve the 350 °C surprise",
+      "coPilotQuestions": [
+        "does the DSC show the compensating entropy/enthalpy change expected along app:solid → app:polyphosphoric_acid → app:char?",
+        "no observation near 280 °C for \"crosslinking route\" — was this step present under these conditions?",
+        "unexpected endotherm at 350 °C — which mechanism produces it?"
+      ]
+    },
+    {
+      "id": "dataset_002_silicate",
+      "project": "inorganic/alkyl silicate coating — dataset_002_silicate",
+      "dataFlag": "illustrative",
+      "gates": null,
+      "promotable": false,
+      "verdict": "STOP",
+      "verdictReasons": [
+        "no ingestion request filed — cannot fly until G1–G6 cleared"
+      ],
+      "promotion": "OFF",
+      "accuracy": 0.6667,
+      "newRegion": true,
+      "observationClasses": {
+        "observation": 2,
+        "context": 1,
+        "surprise": 1,
+        "artifact": 0
+      },
+      "topHypothesis": null,
+      "proposedHypothesis": {
+        "text": "unexpected mass_loss near 700 °C",
+        "epistemic": "Hypothesized",
+        "adversarial": null
+      },
+      "nextExperiment": "Increase DSC/TGA sampling 680–710 °C to resolve the 700 °C surprise",
+      "coPilotQuestions": [
+        "no observation near 250 °C for \"full densification\" — was this step present under these conditions?",
+        "unexpected mass_loss at 700 °C — which mechanism produces it?"
+      ]
+    },
+    {
+      "id": "dataset_003_cementitious",
+      "project": "cementitious plaster / cement paste — dataset_003_cementitious",
+      "dataFlag": "illustrative",
+      "gates": null,
+      "promotable": false,
+      "verdict": "STOP",
+      "verdictReasons": [
+        "no ingestion request filed — cannot fly until G1–G6 cleared"
+      ],
+      "promotion": "OFF",
+      "accuracy": 0.75,
+      "newRegion": true,
+      "observationClasses": {
+        "observation": 3,
+        "context": 1,
+        "surprise": 1,
+        "artifact": 0
+      },
+      "topHypothesis": null,
+      "proposedHypothesis": {
+        "text": "unexpected exotherm near 550 °C",
+        "epistemic": "Hypothesized",
+        "adversarial": null
+      },
+      "nextExperiment": "Increase DSC/TGA sampling 530–560 °C to resolve the 550 °C surprise",
+      "coPilotQuestions": [
+        "no observation near 150 °C for \"C-S-H / ettringite dehydration\" — was this step present under these conditions?",
+        "unexpected exotherm at 550 °C — which mechanism produces it?"
+      ]
+    }
+  ],
   "graph": {
     "nodes": [
       {

@@ -19,6 +19,7 @@ import { planExperiments } from './mbm-experiment-planner.mjs';
 import { phaseOfEdge, phaseOfEpistemic, placeOnDiagram, BAND, LADDER, legalTransition } from './knowledge-phase.mjs';
 import { knowledgeEnergy, compareProjects } from './knowledge-energy.mjs';
 import { signatureOf, matchSignatures } from './knowledge-transfer.mjs';
+import { runFirstFlight } from './first-flight.mjs';
 
 const __dir = dirname(fileURLToPath(import.meta.url));
 const root = join(__dir, '..');
@@ -27,44 +28,52 @@ const mbm = load('docs/material-state/mbm-stress-fixtures.json');
 const corpus = load('docs/failure-library/failure-fixtures.json');
 const dataset = load('docs/first-flight/dataset-001-app-per-mel.json');
 const request = load('docs/first-flight/ingest-request-001-app.json');
+const silicate = load('docs/first-flight/dataset-002-silicate.json');
+const cementitious = load('docs/first-flight/dataset-003-cementitious.json');
+
+// Build one cockpit block from a flight + gate info (gated APP, or ungated others).
+function cockpitFrom(f, ds, gate) {
+  const ctx = f.surveillance.filter((s) => s.verdict === 'context_changed');
+  const surprise = f.surveillance.filter((s) => s.verdict === 'candidate_new');
+  const artifact = f.surveillance.filter((s) => s.verdict === 'model_rejected');
+  const surpriseObs = surprise[0];
+  const corpusCase = surpriseObs && ((surpriseObs.adversarial || []).find((x) => /oxid/.test(x)) || (surpriseObs.adversarial || [])[0]);
+  return {
+    id: ds.datasetId,
+    project: `${ds.system} — ${ds.datasetId}`,
+    dataFlag: ds.flag,
+    gates: gate.gates, // null when no ingestion request was filed
+    promotable: gate.promotable,
+    verdict: gate.verdict,
+    verdictReasons: gate.reasons,
+    promotion: f.report.promotionApplied ? 'ON' : 'OFF',
+    accuracy: f.accuracy,
+    newRegion: f.report.newRegion,
+    observationClasses: {
+      observation: f.observations.length - (ctx.length + surprise.length + artifact.length),
+      context: ctx.length, surprise: surprise.length, artifact: artifact.length
+    },
+    topHypothesis: f.hypotheses[0] ? { route: f.hypotheses[0].route, mri: f.hypotheses[0].mri, epistemic: f.hypotheses[0].epistemic } : null,
+    proposedHypothesis: surpriseObs ? { text: `unexpected ${f.observations.find((o) => o.id === surpriseObs.id).kind} near ${surpriseObs.tempC} °C`, epistemic: 'Hypothesized', adversarial: corpusCase || null } : null,
+    nextExperiment: surpriseObs
+      ? `Increase DSC/TGA sampling ${surpriseObs.tempC - 20}–${surpriseObs.tempC + 10} °C to resolve the ${surpriseObs.tempC} °C surprise`
+      : (f.hypotheses[0] ? `Instrument the weakest step of ${f.hypotheses[0].route}` : 'file an ingestion request (G1–G6) before flying'),
+    coPilotQuestions: f.coPilot.questions
+  };
+}
 
 function buildSnapshot() {
   const gf = gatedFlight(mbm, corpus, dataset, request);
   const ps = passStop(gf);
   const f = gf.flight;
-
-  // --- Cockpit (NOW) --------------------------------------------------------
-  const ctx = f.surveillance.filter((s) => s.verdict === 'context_changed');
   const surprise = f.surveillance.filter((s) => s.verdict === 'candidate_new');
-  const artifact = f.surveillance.filter((s) => s.verdict === 'model_rejected');
-  const observationClasses = {
-    observation: f.observations.length - (ctx.length + surprise.length + artifact.length),
-    context: ctx.length, surprise: surprise.length, artifact: artifact.length
-  };
   const surpriseObs = surprise[0];
-  const corpusCase = surpriseObs && ((surpriseObs.adversarial || []).find((x) => /oxid/.test(x)) || (surpriseObs.adversarial || [])[0]);
-  const proposedHypothesis = surpriseObs
-    ? { text: `char oxidation near ${surpriseObs.tempC} °C (unexpected endotherm)`, epistemic: 'Hypothesized', adversarial: corpusCase || null }
-    : null;
-  const nextExperiment = surpriseObs
-    ? `Increase DSC/TGA sampling ${surpriseObs.tempC - 20}–${surpriseObs.tempC + 10} °C (in air) to resolve the ${surpriseObs.tempC} °C surprise`
-    : (f.hypotheses[0] ? `Instrument the weakest step of ${f.hypotheses[0].route}` : 'n/a');
 
-  const cockpit = {
-    project: 'APP/PER/MEL Intumescent — Dataset 001',
-    dataFlag: dataset.flag,
-    gates: gf.gate.gates,
-    promotable: gf.gate.promotable,
-    verdict: ps.verdict,
-    verdictReasons: ps.reasons,
-    promotion: f.report.promotionApplied ? 'ON' : 'OFF',
-    accuracy: f.accuracy,
-    observationClasses,
-    topHypothesis: f.hypotheses[0] ? { route: f.hypotheses[0].route, mri: f.hypotheses[0].mri, epistemic: f.hypotheses[0].epistemic } : null,
-    proposedHypothesis,
-    nextExperiment,
-    coPilotQuestions: f.coPilot.questions
-  };
+  // APP is gated (has an ingestion request); silicate/cementitious are NOT — they
+  // cannot fly until G1–G6 are cleared. This is shown honestly in the cockpit.
+  const cockpit = cockpitFrom(f, dataset, { gates: gf.gate.gates, promotable: gf.gate.promotable, verdict: ps.verdict, reasons: ps.reasons });
+  const ungated = (ds) => cockpitFrom(runFirstFlight(mbm, corpus, ds), ds, { gates: null, promotable: false, verdict: 'STOP', reasons: ['no ingestion request filed — cannot fly until G1–G6 cleared'] });
+  const datasets = [cockpit, ungated(silicate), ungated(cementitious)];
 
   // --- Knowledge graph (STRUCTURAL) ----------------------------------------
   const appTx = (mbm.transitions || []).filter((t) => t.fromState && t.fromState.startsWith('app:') && t.toState && t.toState.startsWith('app:'));
@@ -149,7 +158,7 @@ function buildSnapshot() {
   return {
     generated: 'cockpit snapshot — projection of existing engines (no new capability)',
     flag: 'illustrative (numeric values reference-class; provenance grounded in real standards)',
-    cockpit, graph, timeline, energy, phases, transfer
+    cockpit, datasets, graph, timeline, energy, phases, transfer
   };
 }
 
@@ -193,6 +202,8 @@ assert(snapshot.energy.comparison.ranked.length === 3 && snapshot.energy.compari
 assert(snapshot.phases && snapshot.phases.placed.cells.length === snapshot.graph.edges.length, 'phase diagram places every graph edge');
 assert(snapshot.phases.lawExamples.find((x) => x.move === 'Inferred → Grounded').legal === false, 'phase law: Inferred → Grounded is illegal (no jump)');
 assert(snapshot.transfer.candidates[0].transferCandidate === true && !('prediction' in snapshot.transfer.candidates[0]), 'transfer candidate is structural-only (no prediction)');
+assert(snapshot.datasets.length === 3, 'three datasets available in the standalone cockpit');
+assert(snapshot.datasets[0].gates && snapshot.datasets[1].gates === null && snapshot.datasets[1].verdict === 'STOP', 'only APP is gated; ungated datasets honestly show STOP (cannot fly without a request)');
 console.log(`  energy: ${snapshot.energy.current.energy} (most efficient: ${snapshot.energy.comparison.mostEfficient}) · phases: ${JSON.stringify(snapshot.phases.placed.counts)} · transfer: ${snapshot.transfer.candidates[0].transferCandidate ? 'CANDIDATE' : 'none'}`);
 assert(JSON.stringify(buildSnapshot()) === JSON.stringify(snapshot), 'exporter is deterministic');
 
