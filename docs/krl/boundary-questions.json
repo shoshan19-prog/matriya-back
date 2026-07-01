@@ -1,0 +1,58 @@
+{
+  "apiVersion": "krl-router/boundary/v1",
+  "note": "Authority-contract boundary suite for the KRL ↔ Retrieval router. Four groups define WHO owns each query. Bilingual (Hebrew/English). These are structural intent tests — no data is fetched, no chemistry is asserted.",
+  "groups": {
+    "pure_relation": {
+      "target": "KRL",
+      "questions": [
+        "באיזה פרויקטים השתמשו ב-APP?",
+        "אילו חומרים קשורים ל-intumescent?",
+        "מה קשור ל-PPA?",
+        "which projects used silicate?",
+        "what materials are related to char formation?",
+        "באילו מוצרים מופיע melamine?",
+        "which suppliers are connected to APP?",
+        "מה הקשר בין APP ל-char?"
+      ]
+    },
+    "pure_aggregation": {
+      "target": "Retrieval",
+      "questions": [
+        "מה אחוז ה-APP הגבוה ביותר?",
+        "כמה פרויקטים יש?",
+        "מה הממוצע של אחוז ה-APP?",
+        "top 5 materials by usage",
+        "count of experiments",
+        "מה הערך הנמוך ביותר של צפיפות?",
+        "average APP percentage",
+        "how many suppliers are there?"
+      ]
+    },
+    "hybrid": {
+      "target": "KRL → Retrieval",
+      "questions": [
+        "באיזה פרויקט היה אחוז ה-APP הגבוה ביותר?",
+        "איזה פרויקט מוביל בכמות APP?",
+        "which supplier has the highest APP percentage?",
+        "מיין את הפרויקטים לפי אחוז APP",
+        "top 3 projects by silicate content",
+        "באיזה מוצר יש הכי הרבה melamine?",
+        "which project used APP the most?",
+        "דרג את הספקים לפי כמות ה-char"
+      ]
+    },
+    "ambiguous": {
+      "target": "REVIEW",
+      "questions": [
+        "APP?",
+        "ספר לי על APP",
+        "מה עם הפרויקטים?",
+        "information about materials",
+        "tell me about silicate",
+        "APP ו-projects",
+        "מידע",
+        "char"
+      ]
+    }
+  }
+}
