@@ -1,0 +1,33 @@
+{
+  "apiVersion": "scientific-task-contract/v1.0",
+  "taskId": "task-reduce-water-absorption",
+  "name": "Reduce water absorption of a plaster",
+  "intent": "Reduce water absorption of the plaster.",
+  "taskType": "diagnosis",
+  "subject": { "type": "material", "ref": "mineral_plaster" },
+  "capabilityGraph": {
+    "nodes": [
+      { "id": "n1", "capability": "observe", "minStrength": 4, "rationale": "gather what drives absorption for this substrate (pores, capillarity, surface energy)" },
+      { "id": "n2", "capability": "diagnose", "minStrength": 3, "rationale": "infer the dominant cause(s) of high absorption — ranked hypotheses" },
+      { "id": "n3", "capability": "recommend", "minStrength": 3, "rationale": "advise the mechanism/material lever most likely to help under constraints" },
+      { "id": "n4", "capability": "explain", "minStrength": 3, "rationale": "explain how e.g. silane binding blocks capillarity -> lower uptake" }
+    ],
+    "edges": [
+      { "from": "n1", "to": "n2", "dataflow": "facts -> candidate causes" },
+      { "from": "n2", "to": "n3", "dataflow": "causes -> lever" },
+      { "from": "n3", "to": "n4", "dataflow": "lever -> narrative" }
+    ]
+  },
+  "successCriteria": [
+    "Ranked candidate causes, each with provenance.",
+    "A recommended lever expressed as a hypothesis, with what would validate it.",
+    "A mechanism explanation the non-chemist can follow."
+  ],
+  "outputExpectation": "diagnosis_report",
+  "safety": {
+    "generatedOutputsAreHypotheses": true,
+    "humanValidationRequiredForPromotion": true,
+    "respectsDomainSeparation": true
+  },
+  "referencesEngines": false
+}

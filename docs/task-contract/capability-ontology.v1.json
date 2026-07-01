@@ -1,0 +1,30 @@
+{
+  "apiVersion": "capability-ontology/v1.0",
+  "primitives": [
+    { "id": "observe", "label": "Observe", "definition": "Locate/retrieve relevant facts as they are stored, with provenance.", "engineAxis": true, "seeMirror": "See" },
+    { "id": "explain", "label": "Explain", "definition": "Articulate why/how — mechanisms, differences, causal chains.", "engineAxis": true, "seeMirror": "Understand" },
+    { "id": "predict", "label": "Predict", "definition": "Estimate future/unknown properties, with uncertainty.", "engineAxis": true, "seeMirror": "Predict" },
+    { "id": "recommend", "label": "Recommend", "definition": "Rank/advise a course of action under goals and constraints.", "engineAxis": true, "seeMirror": "Decide" },
+    { "id": "generate", "label": "Generate", "definition": "Create new candidate artifacts (formulations, hypotheses) — always unvalidated.", "engineAxis": true, "seeMirror": "Decide" },
+    { "id": "validate", "label": "Validate", "definition": "Qualify evidence / test claims toward validated knowledge (human-gated).", "engineAxis": true, "seeMirror": "Decide" },
+    { "id": "learn", "label": "Learn", "definition": "Turn outcomes into retained, reusable knowledge (ΔK).", "engineAxis": true, "seeMirror": "Understand" }
+  ],
+  "derived": [
+    { "id": "compare", "label": "Compare", "definition": "Contrast two or more subjects on shared axes.", "composedOf": ["observe", "explain"], "rule": "observe over >=2 subjects, then explain the differences on shared properties." },
+    { "id": "diagnose", "label": "Diagnose", "definition": "Infer the likely cause of an observed phenomenon (e.g. a failure).", "composedOf": ["observe", "explain", "predict"], "rule": "observe symptoms, explain candidate mechanisms, predict which is most likely; output ranked causes (hypotheses)." },
+    { "id": "optimize", "label": "Optimize", "definition": "Find the best trade-off among conflicting goals under constraints.", "composedOf": ["generate", "predict", "recommend"], "rule": "generate candidates, predict their properties, recommend the Pareto-preferred set." },
+    { "id": "prioritize", "label": "Prioritize", "definition": "Rank options/questions by value (e.g. what to learn next).", "composedOf": ["predict", "recommend"], "rule": "predict impact/uncertainty, recommend an ordering." }
+  ],
+  "taskTypes": [
+    { "id": "diagnosis", "label": "Diagnosis", "definition": "Why is X happening?", "typicalFlow": ["observe", "diagnose", "explain"] },
+    { "id": "comparison", "label": "Comparison", "definition": "Which of these is better, and why?", "typicalFlow": ["observe", "compare", "recommend"] },
+    { "id": "optimization", "label": "Optimization", "definition": "Best trade-off under constraints.", "typicalFlow": ["observe", "generate", "predict", "recommend"] },
+    { "id": "ideation", "label": "Ideation", "definition": "Expand the possibility space with new candidates.", "typicalFlow": ["observe", "generate", "explain"] },
+    { "id": "validation", "label": "Validation", "definition": "Is this claim supported?", "typicalFlow": ["observe", "validate", "explain"] },
+    { "id": "experiment_planning", "label": "Experiment Planning", "definition": "What experiment gives the most knowledge per cost?", "typicalFlow": ["observe", "prioritize", "recommend"] },
+    { "id": "prediction", "label": "Prediction", "definition": "What will happen under these conditions?", "typicalFlow": ["observe", "predict", "explain"] },
+    { "id": "selection", "label": "Selection", "definition": "Choose a material/product for a use-case.", "typicalFlow": ["observe", "compare", "recommend", "explain"] },
+    { "id": "explanation", "label": "Explanation", "definition": "Make a mechanism understandable.", "typicalFlow": ["observe", "explain"] },
+    { "id": "solution_discovery", "label": "Solution Discovery", "definition": "End-to-end: find a new solution to an engineering goal.", "typicalFlow": ["observe", "compare", "generate", "validate", "explain"] }
+  ]
+}

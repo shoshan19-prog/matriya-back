@@ -1,0 +1,36 @@
+{
+  "apiVersion": "scientific-task-contract/v1.0",
+  "taskId": "task-reduce-fire-spread",
+  "name": "Reduce fire spread on a coating",
+  "intent": "I want to reduce fire spread.",
+  "taskType": "solution_discovery",
+  "subject": { "type": "application", "ref": "fire_protection" },
+  "valueWeights": { "fire": 0.6, "cost": 0.2, "workability": 0.2 },
+  "capabilityGraph": {
+    "nodes": [
+      { "id": "n1", "capability": "observe", "minStrength": 4, "rationale": "gather known fire-retardant materials/mechanisms with provenance" },
+      { "id": "n2", "capability": "compare", "minStrength": 3, "rationale": "contrast intumescent vs. mineral vs. gas-phase approaches" },
+      { "id": "n3", "capability": "generate", "minStrength": 4, "rationale": "propose candidate formulations (hypotheses)" },
+      { "id": "n4", "capability": "validate", "minStrength": 3, "rationale": "qualify each candidate against evidence; mark validation gaps" },
+      { "id": "n5", "capability": "explain", "minStrength": 3, "rationale": "articulate the char/expansion mechanism behind the recommendation" }
+    ],
+    "edges": [
+      { "from": "n1", "to": "n2", "dataflow": "materials -> comparison" },
+      { "from": "n2", "to": "n3", "dataflow": "chosen approach -> generation" },
+      { "from": "n3", "to": "n4", "dataflow": "candidates -> qualification" },
+      { "from": "n4", "to": "n5", "dataflow": "qualified set -> narrative" }
+    ]
+  },
+  "successCriteria": [
+    "A ranked set of candidate approaches, each a hypothesis with provenance, assumptions and required validation.",
+    "A mechanism-level explanation of the top candidate.",
+    "No candidate presented as a proven solution."
+  ],
+  "outputExpectation": "scientific_narrative",
+  "safety": {
+    "generatedOutputsAreHypotheses": true,
+    "humanValidationRequiredForPromotion": true,
+    "respectsDomainSeparation": true
+  },
+  "referencesEngines": false
+}

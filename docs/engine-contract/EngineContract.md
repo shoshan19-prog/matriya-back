@@ -1,5 +1,13 @@
 # MATRIYA Engine Contract — v1.0 (STABLE)
 
+> **Above this layer:** the Scientific Task Model
+> ([`../task-contract/ScientificTaskModel.md`](../task-contract/ScientificTaskModel.md))
+> — Capability Ontology v1.0 + Scientific Task Contract v1.0 — describes *what the
+> user wants* in capability terms, so a Composer plans by capability, never by
+> engine name. Its 7 primitive capabilities are exactly this contract's capability
+> vector axes.
+
+
 > **v1.0 is stamped and frozen.** It has been stress-tested against all three
 > reasoning modes (retrieval / evidential / generative) and refuses to weaken its
 > epistemic boundaries. Future engines conform to this standard rather than the

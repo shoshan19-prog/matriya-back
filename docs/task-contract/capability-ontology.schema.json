@@ -1,0 +1,70 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://matriya.example/schemas/capability-ontology/v1.0.json",
+  "title": "MATRIYA Capability Ontology",
+  "description": "STABLE v1.0. The shared vocabulary that joins what TASKS consume to what ENGINES provide. Engines self-declare a capability vector over 7 PRIMITIVES (identical to the frozen Engine Contract v1.0 capability axes). Tasks may reference primitives OR derived capabilities; the Capability Planner expands derived -> primitives to match engines. The Planner therefore selects engines by capability, never by name. Documentation only; no runtime behaviour.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["apiVersion", "primitives", "derived", "taskTypes"],
+  "properties": {
+    "apiVersion": { "const": "capability-ontology/v1.0" },
+    "primitives": {
+      "description": "The atomic capabilities. MUST be exactly the 7 Engine Contract v1.0 capability-vector axes — this identity is what makes the join total.",
+      "type": "array",
+      "minItems": 7,
+      "maxItems": 7,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "label", "definition", "engineAxis"],
+        "properties": {
+          "id": { "enum": ["observe", "explain", "predict", "recommend", "generate", "validate", "learn"] },
+          "label": { "type": "string" },
+          "definition": { "type": "string" },
+          "engineAxis": { "const": true, "description": "True: engines self-rate this axis 0..5 in their contract." },
+          "seeMirror": { "type": "string", "description": "See/Understand/Predict/Decide mapping (perception layer)." }
+        }
+      }
+    },
+    "derived": {
+      "description": "Compound capabilities tasks may reference. Each expands to a set/sequence of primitives; engines do NOT self-declare these — the Planner resolves them.",
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "label", "definition", "composedOf"],
+        "properties": {
+          "id": { "type": "string", "pattern": "^[a-z][a-z0-9_]+$" },
+          "label": { "type": "string" },
+          "definition": { "type": "string" },
+          "composedOf": {
+            "type": "array",
+            "minItems": 1,
+            "items": { "enum": ["observe", "explain", "predict", "recommend", "generate", "validate", "learn"] }
+          },
+          "rule": { "type": "string", "description": "How the primitives combine (e.g. 'observe over >=2 subjects, then explain differences')." }
+        }
+      }
+    },
+    "taskTypes": {
+      "description": "The kinds of scientific task a user goal resolves to. Each carries a typical capability flow (ordered, primitive or derived ids).",
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "label", "definition", "typicalFlow"],
+        "properties": {
+          "id": { "type": "string", "pattern": "^[a-z][a-z0-9_]+$" },
+          "label": { "type": "string" },
+          "definition": { "type": "string" },
+          "typicalFlow": {
+            "type": "array",
+            "minItems": 1,
+            "items": { "type": "string" },
+            "description": "Ordered capability ids (primitive or derived) that this task type usually needs."
+          }
+        }
+      }
+    }
+  }
+}
