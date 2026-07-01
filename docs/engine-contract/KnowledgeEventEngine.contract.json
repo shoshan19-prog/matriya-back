@@ -1,5 +1,5 @@
 {
-  "apiVersion": "engine-contract/v1.0",
+  "apiVersion": "engine-contract/v1.1",
   "name": "knowledge-event",
   "displayName": "Knowledge Event Engine (Continuous Learning Loop)",
   "version": "0.1.0-draft",
@@ -24,16 +24,30 @@
     "seedParam": null
   },
   "outputEpistemics": {
+    "emits": [
+      "candidate",
+      "evidence",
+      "confidence"
+    ],
     "outputClass": "hypothesis",
     "emitsUnvalidated": true,
-    "guarantees": ["provenance", "confidence_type"],
-    "neverAssertsAs": ["validated_knowledge"],
+    "guarantees": [
+      "provenance",
+      "confidence_type"
+    ],
+    "neverAssertsAs": [
+      "validated_knowledge"
+    ],
     "validationGating": "human_gated"
   },
   "transformation": {
     "statement": "Evidence -> qualified Knowledge Event (returned AND appended to the ledger as unvalidated)",
-    "from": ["ikl.Evidence@1"],
-    "to": ["ikl.KnowledgeEvent@1"],
+    "from": [
+      "ikl.Evidence@1"
+    ],
+    "to": [
+      "ikl.KnowledgeEvent@1"
+    ],
     "operation": "qualify_and_append_event"
   },
   "consumes": [
@@ -46,16 +60,33 @@
       "schema": {
         "type": "object",
         "additionalProperties": false,
-        "required": ["claim", "subject", "sources", "evidenceType"],
+        "required": [
+          "claim",
+          "subject",
+          "sources",
+          "evidenceType"
+        ],
         "properties": {
-          "claim": { "type": "string", "minLength": 3, "description": "The asserted knowledge, e.g. 'salt contamination reduces plaster pull-off'." },
+          "claim": {
+            "type": "string",
+            "minLength": 3,
+            "description": "The asserted knowledge, e.g. 'salt contamination reduces plaster pull-off'."
+          },
           "subject": {
             "type": "object",
             "additionalProperties": false,
-            "required": ["type"],
+            "required": [
+              "type"
+            ],
             "properties": {
-              "type": { "type": "string", "description": "What the claim is about (material, mechanism, failure, product, ...)." },
-              "ref": { "type": "string", "description": "Optional id/handle of the subject in the knowledge graph." }
+              "type": {
+                "type": "string",
+                "description": "What the claim is about (material, mechanism, failure, product, ...)."
+              },
+              "ref": {
+                "type": "string",
+                "description": "Optional id/handle of the subject in the knowledge graph."
+              }
             }
           },
           "sources": {
@@ -66,20 +97,38 @@
               "type": "object",
               "additionalProperties": false,
               "properties": {
-                "sourceId": { "type": "integer" },
-                "url": { "type": "string" },
-                "documentType": { "type": "string" }
+                "sourceId": {
+                  "type": "integer"
+                },
+                "url": {
+                  "type": "string"
+                },
+                "documentType": {
+                  "type": "string"
+                }
               }
             }
           },
           "evidenceType": {
-            "enum": ["experiment", "field_observation", "failure", "lab_result", "literature", "expert"]
+            "enum": [
+              "experiment",
+              "field_observation",
+              "failure",
+              "lab_result",
+              "literature",
+              "expert"
+            ]
           },
           "subjectDomain": {
-            "enum": ["internal", "external"],
+            "enum": [
+              "internal",
+              "external"
+            ],
             "description": "Whether the evidence originates in Fresco internal knowledge or external sources."
           },
-          "observations": { "type": "string" }
+          "observations": {
+            "type": "string"
+          }
         }
       }
     }
@@ -93,27 +142,68 @@
       "schema": {
         "type": "object",
         "additionalProperties": false,
-        "required": ["claim", "subject", "evidenceRefs", "confidence", "confidenceType", "validationStatus"],
+        "required": [
+          "claim",
+          "subject",
+          "evidenceRefs",
+          "confidence",
+          "confidenceType",
+          "validationStatus"
+        ],
         "properties": {
-          "eventId": { "type": "string" },
-          "claim": { "type": "string" },
-          "subject": { "type": "object" },
+          "eventId": {
+            "type": "string"
+          },
+          "claim": {
+            "type": "string"
+          },
+          "subject": {
+            "type": "object"
+          },
           "evidenceRefs": {
             "type": "array",
             "minItems": 1,
             "description": "The sources that support the event — carried through, never dropped."
           },
-          "confidence": { "type": "number", "minimum": 0, "maximum": 1 },
-          "confidenceType": { "const": "independent_evidence" },
-          "reasoningClass": { "type": "string" },
-          "reasoningTrace": { "type": ["string", "null"] },
-          "deltaK": { "type": ["number", "null"], "description": "Optional magnitude of the knowledge change." },
+          "confidence": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1
+          },
+          "confidenceType": {
+            "const": "independent_evidence"
+          },
+          "reasoningClass": {
+            "type": "string"
+          },
+          "reasoningTrace": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "deltaK": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "description": "Optional magnitude of the knowledge change."
+          },
           "validationStatus": {
-            "enum": ["pending", "validated", "rejected"],
+            "enum": [
+              "pending",
+              "validated",
+              "rejected"
+            ],
             "description": "MUST be 'pending' on creation. Promotion is a separate human-gated step."
           },
-          "contested": { "type": "boolean", "description": "True when evidence conflicts (paradox flagged for team review)." },
-          "createdAt": { "type": "string" }
+          "contested": {
+            "type": "boolean",
+            "description": "True when evidence conflicts (paradox flagged for team review)."
+          },
+          "createdAt": {
+            "type": "string"
+          }
         }
       }
     }
@@ -156,24 +246,79 @@
     "notes": "Dominated by the atomic append (produce+append must not partially apply). Unmeasured."
   },
   "dependencies": [
-    { "name": "knowledge-ledger", "kind": "datastore", "required": true, "notes": "Append-only store of Knowledge Events. Does NOT exist yet (gap KG1)." },
-    { "name": "ikl_sources (provenance store)", "kind": "datastore", "required": true, "notes": "Resolves/validates the evidence sources." },
-    { "name": "confidence-rubric (source-tier weights)", "kind": "config", "required": true, "notes": "The Confidence Engine rubric as data — NOT an engine dependency (statelessness)." },
-    { "name": "IKL knowledge graph (mechanisms/relationships)", "kind": "datastore", "required": false, "notes": "Optional: link a causal event to existing graph nodes." }
+    {
+      "name": "knowledge-ledger",
+      "kind": "datastore",
+      "required": true,
+      "notes": "Append-only store of Knowledge Events. Does NOT exist yet (gap KG1)."
+    },
+    {
+      "name": "ikl_sources (provenance store)",
+      "kind": "datastore",
+      "required": true,
+      "notes": "Resolves/validates the evidence sources."
+    },
+    {
+      "name": "confidence-rubric (source-tier weights)",
+      "kind": "config",
+      "required": true,
+      "notes": "The Confidence Engine rubric as data — NOT an engine dependency (statelessness)."
+    },
+    {
+      "name": "IKL knowledge graph (mechanisms/relationships)",
+      "kind": "datastore",
+      "required": false,
+      "notes": "Optional: link a causal event to existing graph nodes."
+    }
   ],
   "failureModes": [
-    { "code": "E_NO_EVIDENCE", "condition": "no evidence supplied", "result": "rejected before any work", "severity": "error", "recoverable": true },
-    { "code": "E_UNSOURCED_EVIDENCE", "condition": "evidence carries zero sources", "result": "rejected — no orphan knowledge (Principle 3); nothing appended", "severity": "error", "recoverable": true },
-    { "code": "E_INSUFFICIENT_SUPPORT", "condition": "qualified confidence below threshold", "result": "no append; returns a non-appended low-confidence event", "severity": "empty", "recoverable": true },
-    { "code": "E_CONFLICTING_EVIDENCE", "condition": "evidence contradicts existing high-confidence knowledge", "result": "appends event flagged contested=true + warning (paradox for human review)", "severity": "degraded", "recoverable": true },
-    { "code": "E_LEDGER_UNAVAILABLE", "condition": "append target unreachable", "result": "failed; MUST NOT return an event as if appended (atomic: all-or-nothing)", "severity": "error", "recoverable": false }
+    {
+      "code": "E_NO_EVIDENCE",
+      "condition": "no evidence supplied",
+      "result": "rejected before any work",
+      "severity": "error",
+      "recoverable": true
+    },
+    {
+      "code": "E_UNSOURCED_EVIDENCE",
+      "condition": "evidence carries zero sources",
+      "result": "rejected — no orphan knowledge (Principle 3); nothing appended",
+      "severity": "error",
+      "recoverable": true
+    },
+    {
+      "code": "E_INSUFFICIENT_SUPPORT",
+      "condition": "qualified confidence below threshold",
+      "result": "no append; returns a non-appended low-confidence event",
+      "severity": "empty",
+      "recoverable": true
+    },
+    {
+      "code": "E_CONFLICTING_EVIDENCE",
+      "condition": "evidence contradicts existing high-confidence knowledge",
+      "result": "appends event flagged contested=true + warning (paradox for human review)",
+      "severity": "degraded",
+      "recoverable": true
+    },
+    {
+      "code": "E_LEDGER_UNAVAILABLE",
+      "condition": "append target unreachable",
+      "result": "failed; MUST NOT return an event as if appended (atomic: all-or-nothing)",
+      "severity": "error",
+      "recoverable": false
+    }
   ],
   "provenance": {
     "carriesProvenance": true,
     "notes": "The event embeds evidenceRefs; the append is meaningless without them. Provenance is load-bearing here, not decorative."
   },
   "domainSeparation": {
-    "reads": ["internal", "external"],
-    "writes": ["hypothesis"]
+    "reads": [
+      "internal",
+      "external"
+    ],
+    "writes": [
+      "hypothesis"
+    ]
   }
 }

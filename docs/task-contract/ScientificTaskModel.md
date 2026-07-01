@@ -18,10 +18,15 @@ User Goal (intent)
    ↓  Scientific Task Contract      — what the user wants (this layer)
    ↓  Capability Ontology           — the shared vocabulary (this layer)
    ↓  Capability Planner            — matches needs to providers (future: the Composer's front half)
-   ↓  Engine Contract v1.0          — how each engine looks (frozen)
-   ↓  Engine
-   ↓  Result → Scientific Narrative
+   ↓  Engine Contract v1.1          — how each engine looks (frozen; engines emit — never decide)
+   ↓  Engine Graph                  — engines emit evidence / candidates / recommendations / trade-offs / risks
+   ↓  Decision Workspace            — assembles the surface; NEVER a decision (see DecisionWorkspace.md)
+   ↓  Human Decision                — OUTSIDE the Engine Platform
+   ↓  Knowledge Event → ΔK          — the decision's result re-enters as learning (loop)
 ```
+
+**The Decision Boundary** (Engine Contract v1.1): a decision is never an engine
+output. See [`DecisionWorkspace.md`](./DecisionWorkspace.md).
 
 Everyone else builds `Agent → tool-calling`. This builds `Scientific Intent →
 Scientific Task → Capability Graph → Scientific Reasoning` — the Composer never

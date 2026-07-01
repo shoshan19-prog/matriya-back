@@ -1,5 +1,5 @@
 {
-  "apiVersion": "engine-contract/v1.0",
+  "apiVersion": "engine-contract/v1.1",
   "name": "ikl-search",
   "displayName": "Industrial Search (Engine 1)",
   "version": "0.1.0",
@@ -17,15 +17,25 @@
     "seedParam": null
   },
   "outputEpistemics": {
+    "emits": [
+      "observation",
+      "evidence"
+    ],
     "outputClass": "asserted",
     "emitsUnvalidated": false,
-    "guarantees": ["provenance"],
+    "guarantees": [
+      "provenance"
+    ],
     "validationGating": "none"
   },
   "transformation": {
     "statement": "SearchQuery -> ranked[IKL Record] by semantic proximity",
-    "from": ["ikl.SearchQuery@1"],
-    "to": ["ikl.SearchResultSet@1"],
+    "from": [
+      "ikl.SearchQuery@1"
+    ],
+    "to": [
+      "ikl.SearchResultSet@1"
+    ],
     "operation": "rank_by_similarity"
   },
   "reasoning": {
@@ -54,20 +64,42 @@
       "schema": {
         "type": "object",
         "additionalProperties": false,
-        "required": ["query"],
+        "required": [
+          "query"
+        ],
         "properties": {
-          "query": { "type": "string", "minLength": 1, "description": "Natural-language or keyword query." },
+          "query": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Natural-language or keyword query."
+          },
           "layer": {
             "type": "string",
             "description": "Optional IKL layer key to restrict results (e.g. 'products', 'raw-materials', 'mechanisms').",
             "enum": [
-              "companies", "brands", "products", "raw-materials", "mechanisms",
-              "mechanism-edges", "applications", "supply-chain", "regulatory",
-              "relationships", "performance", "value-engineering", "geo-context",
-              "failures", "opportunities"
+              "companies",
+              "brands",
+              "products",
+              "raw-materials",
+              "mechanisms",
+              "mechanism-edges",
+              "applications",
+              "supply-chain",
+              "regulatory",
+              "relationships",
+              "performance",
+              "value-engineering",
+              "geo-context",
+              "failures",
+              "opportunities"
             ]
           },
-          "limit": { "type": "integer", "minimum": 1, "maximum": 100, "default": 10 }
+          "limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 100,
+            "default": 10
+          }
         }
       }
     }
@@ -81,20 +113,40 @@
       "schema": {
         "type": "object",
         "additionalProperties": false,
-        "required": ["query", "items"],
+        "required": [
+          "query",
+          "items"
+        ],
         "properties": {
-          "query": { "type": "string" },
+          "query": {
+            "type": "string"
+          },
           "items": {
             "type": "array",
             "items": {
               "type": "object",
               "additionalProperties": false,
-              "required": ["layer", "score", "record"],
+              "required": [
+                "layer",
+                "score",
+                "record"
+              ],
               "properties": {
-                "layer": { "type": "string" },
-                "score": { "type": "number", "description": "Cosine similarity in ~[0,1]; higher is closer. NOT a calibrated confidence (see gap G2)." },
-                "snippet": { "type": "string", "description": "Indexed text the match was found in." },
-                "record": { "type": "object", "description": "The hydrated IKL record, including its `source` (provenance)." }
+                "layer": {
+                  "type": "string"
+                },
+                "score": {
+                  "type": "number",
+                  "description": "Cosine similarity in ~[0,1]; higher is closer. NOT a calibrated confidence (see gap G2)."
+                },
+                "snippet": {
+                  "type": "string",
+                  "description": "Indexed text the match was found in."
+                },
+                "record": {
+                  "type": "object",
+                  "description": "The hydrated IKL record, including its `source` (provenance)."
+                }
               }
             }
           }
@@ -124,24 +176,77 @@
     "notes": "Dominated by query embedding (local model warm vs. API cold-start) + vector search. Not yet measured/emitted (gap G5)."
   },
   "dependencies": [
-    { "name": "ikl_embeddings", "kind": "index", "required": true, "notes": "Separate pgvector collection from Fresco rag_documents." },
-    { "name": "all-MiniLM-L6-v2 (or configured EMBEDDING_MODEL)", "kind": "model", "required": true, "notes": "Local transformers.js, or HF/OpenAI API, with a hash fallback." },
-    { "name": "postgres + pgvector", "kind": "datastore", "required": true },
-    { "name": "IKL layer tables (ikl_* + ikl_sources)", "kind": "datastore", "required": true, "notes": "Used to hydrate matches and attach provenance." }
+    {
+      "name": "ikl_embeddings",
+      "kind": "index",
+      "required": true,
+      "notes": "Separate pgvector collection from Fresco rag_documents."
+    },
+    {
+      "name": "all-MiniLM-L6-v2 (or configured EMBEDDING_MODEL)",
+      "kind": "model",
+      "required": true,
+      "notes": "Local transformers.js, or HF/OpenAI API, with a hash fallback."
+    },
+    {
+      "name": "postgres + pgvector",
+      "kind": "datastore",
+      "required": true
+    },
+    {
+      "name": "IKL layer tables (ikl_* + ikl_sources)",
+      "kind": "datastore",
+      "required": true,
+      "notes": "Used to hydrate matches and attach provenance."
+    }
   ],
   "failureModes": [
-    { "code": "E_QUERY_REQUIRED", "condition": "query is empty/missing", "result": "rejected before any work", "severity": "error", "recoverable": true },
-    { "code": "E_UNKNOWN_LAYER", "condition": "layer filter is not a known IKL layer", "result": "rejected with the list of valid layers", "severity": "error", "recoverable": true },
-    { "code": "E_INDEX_EMPTY", "condition": "ikl_embeddings has no rows", "result": "empty result set (not an error)", "severity": "empty", "recoverable": true },
-    { "code": "E_EMBED_UNAVAILABLE", "condition": "local model and embedding APIs all fail", "result": "degraded: falls back to a hash embedding (low-quality ranking)", "severity": "degraded", "recoverable": true },
-    { "code": "E_DB_UNAVAILABLE", "condition": "database not reachable/initialised", "result": "failed", "severity": "error", "recoverable": false }
+    {
+      "code": "E_QUERY_REQUIRED",
+      "condition": "query is empty/missing",
+      "result": "rejected before any work",
+      "severity": "error",
+      "recoverable": true
+    },
+    {
+      "code": "E_UNKNOWN_LAYER",
+      "condition": "layer filter is not a known IKL layer",
+      "result": "rejected with the list of valid layers",
+      "severity": "error",
+      "recoverable": true
+    },
+    {
+      "code": "E_INDEX_EMPTY",
+      "condition": "ikl_embeddings has no rows",
+      "result": "empty result set (not an error)",
+      "severity": "empty",
+      "recoverable": true
+    },
+    {
+      "code": "E_EMBED_UNAVAILABLE",
+      "condition": "local model and embedding APIs all fail",
+      "result": "degraded: falls back to a hash embedding (low-quality ranking)",
+      "severity": "degraded",
+      "recoverable": true
+    },
+    {
+      "code": "E_DB_UNAVAILABLE",
+      "condition": "database not reachable/initialised",
+      "result": "failed",
+      "severity": "error",
+      "recoverable": false
+    }
   ],
   "provenance": {
     "carriesProvenance": true,
     "notes": "Each result's `record.source` is the ikl_sources row. No consolidated envelope-level provenance list yet (gap G3)."
   },
   "domainSeparation": {
-    "reads": ["external"],
-    "writes": ["none"]
+    "reads": [
+      "external"
+    ],
+    "writes": [
+      "none"
+    ]
   }
 }

@@ -1,8 +1,8 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://matriya.example/schemas/engine-contract/v1.0.json",
+  "$id": "https://matriya.example/schemas/engine-contract/v1.1.json",
   "title": "MATRIYA Engine Contract",
-  "description": "STABLE v1.0. Manifest that every Industrial Intelligence Platform engine MUST publish — a self-describing declaration, NOT runtime code and NOT an orchestrator. An engine that validates against this schema can be composed as a plug-and-play module. v1.0 = v0.3 (evidential/inductive reasoning classes; retrySafe/idempotencyKey; the outputEpistemics hypothesis safety envelope) plus two final decisions: (D1) change.recordsProducedArtifact — the produced artifact and the appended artifact may be one and the same; (D2) reproducibility — deterministic:false engines must declare whether/how a seed makes runs repeatable. GOVERNING RULE: the contract does not weaken to fit an engine — if an engine cannot be represented without relaxing its safety boundaries, that is a contract failure to REPORT, not an engine to force in. Documentation only; no runtime behaviour is implied or changed. This standard is frozen; future engines conform to it rather than the reverse.",
+  "description": "STABLE v1.1. Manifest that every Industrial Intelligence Platform engine MUST publish — a self-describing declaration, NOT runtime code and NOT an orchestrator. v1.1 reopens v1.0 ONCE, deliberately, for the DECISION BOUNDARY — a foundational principle, not a feature: a DECISION IS NEVER AN ENGINE OUTPUT. An engine may emit only observation / evidence / explanation / prediction / candidate / recommendation / trade_off / risk / confidence / missing_evidence (see outputEpistemics.emits — 'decision' is deliberately absent, so no engine can ever declare it). The Human Decision lives OUTSIDE the Engine Platform, on a separate Decision Workspace that assembles engine emissions into a surface; only the RESULT of a human decision re-enters the system as a Knowledge Event. GOVERNING RULE: the contract does not weaken to fit an engine — if an engine cannot be represented without relaxing its safety boundaries, that is a contract failure to REPORT, not an engine to force in. Documentation only; no runtime behaviour. Frozen; future engines conform to it rather than the reverse.",
   "type": "object",
   "additionalProperties": false,
   "required": [
@@ -30,7 +30,7 @@
   "properties": {
     "apiVersion": {
       "description": "Contract format version. Pins the manifest to a schema revision.",
-      "const": "engine-contract/v1.0"
+      "const": "engine-contract/v1.1"
     },
     "name": {
       "description": "Stable, unique engine id (kebab-case, dot-namespaced allowed).",
@@ -148,10 +148,18 @@
       "description": "v0.3 F3 — the hypothesis safety envelope. Declares the epistemic status of outputs so a Composer knows, WITHOUT parsing payload schemas, whether an engine emits facts or unvalidated hypotheses. Invariant (enforced by schema rules below): a generative engine's outputs are ALWAYS 'hypothesis'; a 'hypothesis' output is ALWAYS human-gated and unvalidated and carries safety guarantees. Generated candidate = hypothesis awaiting validation — never knowledge, never recommendation.",
       "type": "object",
       "additionalProperties": false,
-      "required": ["outputClass", "emitsUnvalidated", "validationGating"],
+      "required": ["outputClass", "emitsUnvalidated", "validationGating", "emits"],
       "properties": {
+        "emits": {
+          "description": "v1.1 DECISION BOUNDARY. The kinds of thing this engine may emit. 'decision' is DELIBERATELY ABSENT from the vocabulary — a Decision is never an engine output; it is a human act, taken on a separate Decision Workspace, over many emissions. This enum is the structural guarantee: no engine can declare it emits a decision.",
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "enum": ["observation", "evidence", "explanation", "prediction", "candidate", "recommendation", "trade_off", "risk", "confidence", "missing_evidence"]
+          }
+        },
         "outputClass": {
-          "description": "'asserted' = returns knowledge as already stored, with its own provenance/status (retrieval); 'hypothesis' = produces NEW unvalidated claims (generation, evidence qualification); 'mixed'.",
+          "description": "'asserted' = returns knowledge as already stored, with its own provenance/status (retrieval); 'hypothesis' = produces NEW unvalidated claims (generation, evidence qualification); 'mixed'. NOTE: even a 'recommendation' is not a decision (see `emits` — the Decision Boundary).",
           "enum": ["asserted", "hypothesis", "mixed"]
         },
         "emitsUnvalidated": { "type": "boolean" },

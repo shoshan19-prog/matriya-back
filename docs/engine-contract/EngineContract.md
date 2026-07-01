@@ -1,4 +1,16 @@
-# MATRIYA Engine Contract — v1.0 (STABLE)
+# MATRIYA Engine Contract — v1.1 (STABLE)
+
+> **v1.1 — the one deliberate reopening, for the Decision Boundary.** A *Decision
+> is never an engine output.* Every engine now declares `outputEpistemics.emits`
+> from a closed vocabulary (`observation · evidence · explanation · prediction ·
+> candidate · recommendation · trade_off · risk · confidence · missing_evidence`)
+> that **omits `decision`** — so no engine can ever declare it emits one. The
+> Human Decision lives on a separate **Decision Workspace**
+> ([`../task-contract/DecisionWorkspace.md`](../task-contract/DecisionWorkspace.md)),
+> outside the Engine Platform; only the *result* of a decision re-enters as a
+> Knowledge Event. This resolves RG3 more deeply than an enum addition — it fixes a
+> category error, not a label — and governs every future engine. All four engine
+> instances re-validate; none can emit a decision.
 
 > **Above this layer:** the Scientific Task Model
 > ([`../task-contract/ScientificTaskModel.md`](../task-contract/ScientificTaskModel.md))

@@ -100,10 +100,19 @@ spot exactly at the human/machine boundary:
   - `outputEpistemics.guarantees` lacks `trade_offs` and `why_not_alternatives`
     — required in the payload instead.
 
-RG3 is the first *safety-relevant* refinement found since the freeze. It does not
-force a change now (safety holds), but it is a strong candidate for the first
-post-v1.0 revision — a deliberate decision for you, per the governing rule that
-the contract is reopened intentionally, never bent silently.
+RG3 is the first *safety-relevant* refinement found since the freeze.
+
+> **RG3 — RESOLVED in Engine Contract v1.1 (Decision Boundary), and more deeply
+> than proposed.** The fix is *not* `outputClass = decision_support`. The deeper
+> truth is that **a Decision is never an engine output at all** — it is a human
+> act over many emissions. v1.1 adds `outputEpistemics.emits`, a closed vocabulary
+> (`observation … recommendation … trade_off … risk … missing_evidence`) that
+> **omits `decision`**, so no engine can declare it emits one. Decisions live on
+> the separate **Decision Workspace**
+> ([`../task-contract/DecisionWorkspace.md`](../task-contract/DecisionWorkspace.md)),
+> outside the Engine Platform. This Recommendation Engine now declares
+> `emits: [recommendation, trade_off, risk, confidence, missing_evidence,
+> explanation]` — a ranking, never a decision.
 
 ## 7. Verdict — the success question
 

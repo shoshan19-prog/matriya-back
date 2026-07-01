@@ -1,5 +1,5 @@
 {
-  "apiVersion": "engine-contract/v1.0",
+  "apiVersion": "engine-contract/v1.1",
   "name": "combination-discovery",
   "displayName": "Combination Discovery / Virtual Formulation Engine (Engine 16)",
   "version": "0.1.0-draft",
@@ -17,16 +17,41 @@
     "seedParam": "constraints.seed"
   },
   "outputEpistemics": {
+    "emits": [
+      "candidate",
+      "prediction",
+      "trade_off",
+      "risk",
+      "confidence",
+      "missing_evidence"
+    ],
     "outputClass": "hypothesis",
     "emitsUnvalidated": true,
-    "guarantees": ["provenance", "assumptions", "validation_requirements", "uncertainty", "non_exhaustiveness", "confidence_type"],
-    "neverAssertsAs": ["fact", "knowledge", "recommendation", "validated_knowledge"],
+    "guarantees": [
+      "provenance",
+      "assumptions",
+      "validation_requirements",
+      "uncertainty",
+      "non_exhaustiveness",
+      "confidence_type"
+    ],
+    "neverAssertsAs": [
+      "fact",
+      "knowledge",
+      "recommendation",
+      "validated_knowledge"
+    ],
     "validationGating": "human_gated"
   },
   "transformation": {
     "statement": "Requirements + Constraints (+ Knowledge Base) -> ranked candidate formulations, all unvalidated hypotheses",
-    "from": ["ikl.FormulationRequirements@1", "ikl.FormulationConstraints@1"],
-    "to": ["ikl.CandidateSet@1"],
+    "from": [
+      "ikl.FormulationRequirements@1",
+      "ikl.FormulationConstraints@1"
+    ],
+    "to": [
+      "ikl.CandidateSet@1"
+    ],
     "operation": "generate_mechanism_constrained_candidates"
   },
   "consumes": [
@@ -39,7 +64,9 @@
       "schema": {
         "type": "object",
         "additionalProperties": false,
-        "required": ["targets"],
+        "required": [
+          "targets"
+        ],
         "properties": {
           "targets": {
             "type": "array",
@@ -48,15 +75,29 @@
             "items": {
               "type": "object",
               "additionalProperties": false,
-              "required": ["property", "target"],
+              "required": [
+                "property",
+                "target"
+              ],
               "properties": {
-                "property": { "type": "string" },
-                "target": { "type": "string" },
-                "weight": { "type": "number", "minimum": 0, "maximum": 1 }
+                "property": {
+                  "type": "string"
+                },
+                "target": {
+                  "type": "string"
+                },
+                "weight": {
+                  "type": "number",
+                  "minimum": 0,
+                  "maximum": 1
+                }
               }
             }
           },
-          "application": { "type": "string", "description": "Application domain (concrete, mortar, facade, ...)." }
+          "application": {
+            "type": "string",
+            "description": "Application domain (concrete, mortar, facade, ...)."
+          }
         }
       }
     },
@@ -70,12 +111,42 @@
         "type": "object",
         "additionalProperties": false,
         "properties": {
-          "costCeiling": { "type": ["number", "null"] },
-          "allowedMaterials": { "type": "array", "items": { "type": "string" }, "description": "If set, candidates draw only from these (e.g. Fresco inventory)." },
-          "bannedMaterials": { "type": "array", "items": { "type": "string" } },
-          "regulatory": { "type": "array", "items": { "type": "string" }, "description": "e.g. REACH, low-VOC, marine-climate suitability." },
-          "geoContext": { "type": "string" },
-          "seed": { "type": ["integer", "null"], "description": "v1.0 D2 reproducibility seed — same seed + same KB snapshot reproduces the candidate set." }
+          "costCeiling": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "allowedMaterials": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "If set, candidates draw only from these (e.g. Fresco inventory)."
+          },
+          "bannedMaterials": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "regulatory": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "e.g. REACH, low-VOC, marine-climate suitability."
+          },
+          "geoContext": {
+            "type": "string"
+          },
+          "seed": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "description": "v1.0 D2 reproducibility seed — same seed + same KB snapshot reproduces the candidate set."
+          }
         }
       }
     }
@@ -89,17 +160,36 @@
       "schema": {
         "type": "object",
         "additionalProperties": false,
-        "required": ["query", "candidates", "generationBounds"],
+        "required": [
+          "query",
+          "candidates",
+          "generationBounds"
+        ],
         "properties": {
-          "query": { "type": "object", "description": "Echo of requirements+constraints used." },
+          "query": {
+            "type": "object",
+            "description": "Echo of requirements+constraints used."
+          },
           "generationBounds": {
             "type": "object",
             "additionalProperties": false,
-            "required": ["maxCandidates", "searchStrategy", "truncated"],
+            "required": [
+              "maxCandidates",
+              "searchStrategy",
+              "truncated"
+            ],
             "properties": {
-              "maxCandidates": { "type": "integer" },
-              "searchStrategy": { "const": "mechanism_pruned", "description": "Mechanism-driven pruning, NOT brute force." },
-              "truncated": { "type": "boolean", "description": "True if the space was capped — the set is not exhaustive." }
+              "maxCandidates": {
+                "type": "integer"
+              },
+              "searchStrategy": {
+                "const": "mechanism_pruned",
+                "description": "Mechanism-driven pruning, NOT brute force."
+              },
+              "truncated": {
+                "type": "boolean",
+                "description": "True if the space was capped — the set is not exhaustive."
+              }
             }
           },
           "candidates": {
@@ -107,7 +197,16 @@
             "items": {
               "type": "object",
               "additionalProperties": false,
-              "required": ["formulation", "predicted", "confidence", "confidenceType", "epistemicStatus", "assumptions", "validationRequirements", "provenance"],
+              "required": [
+                "formulation",
+                "predicted",
+                "confidence",
+                "confidenceType",
+                "epistemicStatus",
+                "assumptions",
+                "validationRequirements",
+                "provenance"
+              ],
               "properties": {
                 "formulation": {
                   "type": "array",
@@ -116,11 +215,26 @@
                   "items": {
                     "type": "object",
                     "additionalProperties": false,
-                    "required": ["material"],
+                    "required": [
+                      "material"
+                    ],
                     "properties": {
-                      "material": { "type": "string" },
-                      "fraction": { "type": ["number", "null"] },
-                      "domain": { "enum": ["external", "internal"], "description": "Whether this material's data came from external IKL or internal Fresco knowledge." }
+                      "material": {
+                        "type": "string"
+                      },
+                      "fraction": {
+                        "type": [
+                          "number",
+                          "null"
+                        ]
+                      },
+                      "domain": {
+                        "enum": [
+                          "external",
+                          "internal"
+                        ],
+                        "description": "Whether this material's data came from external IKL or internal Fresco knowledge."
+                      }
                     }
                   }
                 },
@@ -130,24 +244,53 @@
                   "items": {
                     "type": "object",
                     "additionalProperties": false,
-                    "required": ["property", "estimate", "uncertainty"],
+                    "required": [
+                      "property",
+                      "estimate",
+                      "uncertainty"
+                    ],
                     "properties": {
-                      "property": { "type": "string" },
-                      "estimate": { "type": "string" },
-                      "uncertainty": { "type": "string" }
+                      "property": {
+                        "type": "string"
+                      },
+                      "estimate": {
+                        "type": "string"
+                      },
+                      "uncertainty": {
+                        "type": "string"
+                      }
                     }
                   }
                 },
-                "mechanismRationale": { "type": "string", "description": "Why the mechanisms suggest this could work (the reasoning trace)." },
+                "mechanismRationale": {
+                  "type": "string",
+                  "description": "Why the mechanisms suggest this could work (the reasoning trace)."
+                },
                 "ranking": {
                   "type": "object",
                   "description": "Score breakdown: compatibility, mechanism, risk, confidence, expected performance, cost, novelty.",
-                  "additionalProperties": { "type": "number" }
+                  "additionalProperties": {
+                    "type": "number"
+                  }
                 },
-                "novelty": { "type": "number", "minimum": 0, "maximum": 1 },
-                "confidence": { "type": "number", "minimum": 0, "maximum": 1 },
-                "confidenceType": { "const": "mechanism_plausibility", "description": "A mechanism-plausibility prior, not a validated probability (v0.3, F4 resolved)." },
-                "epistemicStatus": { "const": "candidate_hypothesis", "description": "Hard-locked: a generated candidate is NEVER a fact." },
+                "novelty": {
+                  "type": "number",
+                  "minimum": 0,
+                  "maximum": 1
+                },
+                "confidence": {
+                  "type": "number",
+                  "minimum": 0,
+                  "maximum": 1
+                },
+                "confidenceType": {
+                  "const": "mechanism_plausibility",
+                  "description": "A mechanism-plausibility prior, not a validated probability (v0.3, F4 resolved)."
+                },
+                "epistemicStatus": {
+                  "const": "candidate_hypothesis",
+                  "description": "Hard-locked: a generated candidate is NEVER a fact."
+                },
                 "assumptions": {
                   "type": "array",
                   "minItems": 1,
@@ -163,7 +306,13 @@
                   "minItems": 1,
                   "description": "The KB facts (mechanisms, compatibility rows, raw-material/perf records with source ids) the candidate was built from."
                 },
-                "riskFlags": { "type": "array", "items": { "type": "string" }, "description": "Known incompatibilities / failure-library hits." }
+                "riskFlags": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  },
+                  "description": "Known incompatibilities / failure-library hits."
+                }
               }
             }
           }
@@ -209,25 +358,83 @@
     "notes": "Unmeasured; bounded by generationBounds.maxCandidates."
   },
   "dependencies": [
-    { "name": "IKL mechanisms + mechanism graph", "kind": "datastore", "required": true, "notes": "Drives mechanism-constrained pruning." },
-    { "name": "IKL relationships (compatibility/substitution)", "kind": "datastore", "required": true },
-    { "name": "IKL raw materials + products", "kind": "datastore", "required": true, "notes": "The building blocks." },
-    { "name": "IKL performance + failure library", "kind": "datastore", "required": false, "notes": "Prunes known-failing combinations (Layer 12)." },
-    { "name": "confidence-rubric (source-tier weights)", "kind": "config", "required": true }
+    {
+      "name": "IKL mechanisms + mechanism graph",
+      "kind": "datastore",
+      "required": true,
+      "notes": "Drives mechanism-constrained pruning."
+    },
+    {
+      "name": "IKL relationships (compatibility/substitution)",
+      "kind": "datastore",
+      "required": true
+    },
+    {
+      "name": "IKL raw materials + products",
+      "kind": "datastore",
+      "required": true,
+      "notes": "The building blocks."
+    },
+    {
+      "name": "IKL performance + failure library",
+      "kind": "datastore",
+      "required": false,
+      "notes": "Prunes known-failing combinations (Layer 12)."
+    },
+    {
+      "name": "confidence-rubric (source-tier weights)",
+      "kind": "config",
+      "required": true
+    }
   ],
   "failureModes": [
-    { "code": "E_INCOMPATIBLE_REQUIREMENTS", "condition": "requirements are mutually exclusive", "result": "rejected with an explanation; no candidates", "severity": "error", "recoverable": true },
-    { "code": "E_NO_FEASIBLE_CANDIDATE", "condition": "constraints exclude the whole space", "result": "empty candidate set (not an error)", "severity": "empty", "recoverable": true },
-    { "code": "E_UNDERCONSTRAINED", "condition": "space too large to explore fully", "result": "returns a capped, mechanism-pruned set with generationBounds.truncated=true + warning", "severity": "degraded", "recoverable": true },
-    { "code": "E_INSUFFICIENT_KNOWLEDGE", "condition": "KB lacks mechanism/compatibility data for the space", "result": "fewer candidates, elevated uncertainty, emits knowledge-gap flags (feeds Engine 22)", "severity": "degraded", "recoverable": true },
-    { "code": "E_KB_UNAVAILABLE", "condition": "knowledge-base dependency unreachable", "result": "failed", "severity": "error", "recoverable": false }
+    {
+      "code": "E_INCOMPATIBLE_REQUIREMENTS",
+      "condition": "requirements are mutually exclusive",
+      "result": "rejected with an explanation; no candidates",
+      "severity": "error",
+      "recoverable": true
+    },
+    {
+      "code": "E_NO_FEASIBLE_CANDIDATE",
+      "condition": "constraints exclude the whole space",
+      "result": "empty candidate set (not an error)",
+      "severity": "empty",
+      "recoverable": true
+    },
+    {
+      "code": "E_UNDERCONSTRAINED",
+      "condition": "space too large to explore fully",
+      "result": "returns a capped, mechanism-pruned set with generationBounds.truncated=true + warning",
+      "severity": "degraded",
+      "recoverable": true
+    },
+    {
+      "code": "E_INSUFFICIENT_KNOWLEDGE",
+      "condition": "KB lacks mechanism/compatibility data for the space",
+      "result": "fewer candidates, elevated uncertainty, emits knowledge-gap flags (feeds Engine 22)",
+      "severity": "degraded",
+      "recoverable": true
+    },
+    {
+      "code": "E_KB_UNAVAILABLE",
+      "condition": "knowledge-base dependency unreachable",
+      "result": "failed",
+      "severity": "error",
+      "recoverable": false
+    }
   ],
   "provenance": {
     "carriesProvenance": true,
     "notes": "Each candidate cites the KB facts it was assembled from AND its assumptions and required validation. A candidate without provenance+assumptions+validationRequirements is structurally impossible (required in the produces schema). This is how a generative engine stays honest."
   },
   "domainSeparation": {
-    "reads": ["external", "internal"],
-    "writes": ["none"]
+    "reads": [
+      "external",
+      "internal"
+    ],
+    "writes": [
+      "none"
+    ]
   }
 }

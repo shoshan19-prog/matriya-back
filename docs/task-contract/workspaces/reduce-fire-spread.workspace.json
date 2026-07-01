@@ -1,0 +1,35 @@
+{
+  "apiVersion": "decision-workspace/v1.0",
+  "workspaceId": "ws-reduce-fire-spread-001",
+  "task": { "taskId": "task-reduce-fire-spread", "intent": "I want to reduce fire spread." },
+  "isEngine": false,
+  "producesDecision": false,
+  "humanDecisionExternal": true,
+  "surface": {
+    "alternatives": [
+      { "ref": "approach:intumescent", "label": "Intumescent (APP/melamine/PER char)" },
+      { "ref": "approach:mineral", "label": "Mineral / inert filler barrier" }
+    ],
+    "tradeOffs": [
+      "intumescent: +fire, +cost, -workability",
+      "mineral: +durability, -fire-per-mass, +loading"
+    ],
+    "risks": ["intumescent: moisture-sensitive char", "mineral: high filler load harms adhesion"],
+    "evidenceQuality": { "approach:intumescent": { "confidence": 0.6, "basis": "TDS + literature" }, "approach:mineral": { "confidence": 0.5, "basis": "field + literature" } },
+    "uncertainty": { "note": "no candidate has been tested at the target substrate/dosage" },
+    "missingEvidence": ["burn test at target thickness", "pull-off after freeze-thaw"],
+    "whatIf": ["if marine climate: intumescent char durability drops"]
+  },
+  "contributingEmissions": [
+    { "emits": "observation", "capability": "observe", "engine": "ikl-search", "ref": "search:fire-retardants" },
+    { "emits": "explanation", "capability": "compare", "engine": "recommendation", "ref": "cmp:intumescent-vs-mineral" },
+    { "emits": "candidate", "capability": "generate", "engine": "combination-discovery", "ref": "cand:set-17" },
+    { "emits": "recommendation", "capability": "recommend", "engine": "recommendation", "ref": "rec:ranked" },
+    { "emits": "trade_off", "capability": "recommend", "engine": "recommendation", "ref": "rec:tradeoffs" },
+    { "emits": "risk", "capability": "recommend", "engine": "recommendation", "ref": "rec:risks" },
+    { "emits": "missing_evidence", "capability": "validate", "engine": "knowledge-event", "ref": "gap:validation" }
+  ],
+  "humanDecision": {
+    "status": "pending"
+  }
+}
