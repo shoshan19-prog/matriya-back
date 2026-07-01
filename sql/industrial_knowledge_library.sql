@@ -375,4 +375,20 @@ CREATE TABLE IF NOT EXISTS ikl_connections (
 CREATE INDEX IF NOT EXISTS ikl_connections_external_idx ON ikl_connections(external_type, external_id);
 CREATE INDEX IF NOT EXISTS ikl_connections_status_idx ON ikl_connections(status);
 
+-- Semantic search index — SEPARATE vector collection from Fresco's
+-- rag_documents (kept apart so external vectors never mix into the internal RAG).
+-- Auto-created at runtime by the IKL vector store; included here as the
+-- production source-of-truth. Dimension 384 matches all-MiniLM-L6-v2.
+CREATE EXTENSION IF NOT EXISTS vector;
+CREATE TABLE IF NOT EXISTS ikl_embeddings (
+    id TEXT PRIMARY KEY,          -- "<record_type>:<record_id>"
+    embedding vector(384),
+    document TEXT NOT NULL,
+    metadata JSONB,               -- { layer, record_type, record_id }
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+CREATE INDEX IF NOT EXISTS ikl_embeddings_embedding_idx
+    ON ikl_embeddings USING ivfflat (embedding vector_cosine_ops) WITH (lists = 100);
+CREATE INDEX IF NOT EXISTS ikl_embeddings_metadata_idx ON ikl_embeddings USING GIN (metadata);
+
 -- Done.

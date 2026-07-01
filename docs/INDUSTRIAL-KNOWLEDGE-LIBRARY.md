@@ -22,7 +22,8 @@ This document describes the backend foundation delivered in `matriya-back`.
 ## Files
 
 - `iklModels.js` — Sequelize models for all layers + the `IKL_LAYERS` registry.
-- `iklEndpoints.js` — the `/ikl` router (generic CRUD + graph + connections).
+- `iklEndpoints.js` — the `/ikl` router (generic CRUD + search + bulk + graph + connections).
+- `iklVectorStore.js` — semantic search over the separate `ikl_embeddings` collection.
 - `sql/industrial_knowledge_library.sql` — production DDL (run in Supabase SQL Editor).
 - `scripts/seed-ikl-vocabulary.js` — seeds controlled vocabulary only.
 - Wired into `server.js` via `app.use('/ikl', iklRouter)`.
@@ -68,7 +69,37 @@ Base path: `/ikl`. Reads require any authenticated user; writes require an admin
 - `GET  /ikl/:layer/:id` — one record (includes its source).
 - `GET  /ikl/:layer/:id/history` — version history.
 - `POST /ikl/:layer` *(admin)* — create. Fact-stating layers require provenance.
+- `POST /ikl/:layer/bulk` *(admin)* — bulk import (see below).
 - `PUT  /ikl/:layer/:id` *(admin)* — update (snapshots previous version).
+
+### Semantic search & indexing
+- `POST /ikl/search` — body `{ "query": "...", "layer"?: "products", "limit"?: 10 }`.
+  Embeds the query and searches the **`ikl_embeddings`** vector collection
+  (separate from Fresco's `rag_documents` — external vectors never mix into the
+  internal RAG). Returns hydrated records with a similarity `score` and snippet.
+- `POST /ikl/reindex` *(admin)* — body `{ "layer"?: "..." }`. Rebuilds embeddings
+  for existing records (backfill after import or model change).
+
+Single writes are indexed automatically (best-effort); if indexing fails the
+write still succeeds and `reindex` can backfill.
+
+### Bulk import
+
+```json
+POST /ikl/products/bulk
+{
+  "source": { "document_type": "product_selector", "url": "https://…", "publisher": "BASF" },
+  "records": [
+    { "product_name": "Acronal S 559", "classification": "Acrylic Binder" },
+    { "product_name": "Acronal DS 6250", "classification": "Latex", "source_id": 3 }
+  ]
+}
+```
+
+A batch-level `source` is applied to any record that omits its own
+`source_id`/`source`. Import is **all-or-nothing**: if any record fails
+provenance/validation, nothing is written and the offending index is reported
+(`record[1]: …`). Max 1000 records per request.
 
 ### Provenance
 - `GET  /ikl/sources` / `POST /ikl/sources` *(admin)*.
