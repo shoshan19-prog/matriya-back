@@ -65,13 +65,16 @@
   <button data-view="cockpit" class="active">🛩️ Cockpit — עכשיו</button>
   <button data-view="timeline">🕒 Timeline — לאורך זמן</button>
   <button data-view="graph">🗺️ Knowledge Graph — מבנית</button>
-  <button data-view="reactive">🔥 Reactive (concept)</button>
+  <button data-view="phases">🧊 Phase Diagram</button>
+  <button data-view="energy">⚡ Knowledge Energy</button>
+  <button data-view="transfer">🔗 Transfer (KTE)</button>
+  <button data-view="reactive">🎮 Reactive (game)</button>
 </nav>
 <main id="main"></main>
 <div class="toast" id="toast"></div>
 
 <script>
-const SNAPSHOT = {"generated":"cockpit snapshot — projection of existing engines (no new capability)","flag":"illustrative (numeric values reference-class; provenance grounded in real standards)","cockpit":{"project":"APP/PER/MEL Intumescent — Dataset 001","dataFlag":"illustrative","gates":{"G1_humanSubmitter":true,"G2_provenanceConfirmed":true,"G3_evidenceGraded":true,"G4_noInventedChemistry":true,"G5_mbmMappingConfirmed":true,"G6_dualSignoff":true},"promotable":true,"verdict":"STOP","verdictReasons":["surprise cross-flagged against the failure corpus — escalate to Experiment Planner (C.4): o4"],"promotion":"OFF","accuracy":0.75,"observationClasses":{"observation":4,"context":1,"surprise":1,"artifact":0},"topHypothesis":{"route":"app:solid → app:polyphosphoric_acid → app:char","mri":0.4041,"epistemic":"Corroborated"},"proposedHypothesis":{"text":"char oxidation near 350 °C (unexpected endotherm)","epistemic":"Hypothesized","adversarial":"fail_app_char_oxidation"},"nextExperiment":"Increase DSC/TGA sampling 330–360 °C (in air) to resolve the 350 °C surprise","coPilotQuestions":["does the DSC show the compensating entropy/enthalpy change expected along app:solid → app:polyphosphoric_acid → app:char?","no observation near 280 °C for \"crosslinking route\" — was this step present under these conditions?","unexpected endotherm at 350 °C — which mechanism produces it?"]},"graph":{"nodes":[{"id":"app:solid","label":"solid"},{"id":"app:polyphosphoric_acid","label":"polyphosphoric_acid"},{"id":"app:char","label":"char"},{"id":"app:crosslinked","label":"crosslinked"},{"id":"app:char_oxidized","label":"char_oxidized"}],"edges":[{"from":"app:solid","to":"app:polyphosphoric_acid","id":"app_ppa1","mechanism":"polyphosphoric acid formation","status":"observed","tier":"grounded","confidence":0.48,"evidence":["illustrative","EN 13381-8 / ISO 834 (P0.1)"],"deltaK":[],"contradictions":[],"experiments":["TGA/DSC to compare APP activation onset vs binder decomposition onset"],"competingMechanisms":["APP releases polyphosphoric acid before the char-former/binder is ready, so acid is spent before crosslinking"]},{"from":"app:polyphosphoric_acid","to":"app:char","id":"app_ppa2","mechanism":"char formation","status":"mechanism_supported","tier":"grounded","confidence":0.42,"evidence":["illustrative","EN 13381-8 / ISO 834 (P0.1)"],"deltaK":[],"contradictions":[],"experiments":[],"competingMechanisms":[]},{"from":"app:solid","to":"app:crosslinked","id":"app_xl1","mechanism":"crosslinking","status":"mechanism_supported","tier":"strong","confidence":0.42,"evidence":["illustrative"],"deltaK":[],"contradictions":[],"experiments":[],"competingMechanisms":[]},{"from":"app:crosslinked","to":"app:char","id":"app_xl2","mechanism":"char formation (hypothesized route)","status":"hypothesized","tier":"inferred","confidence":0.15,"evidence":[],"deltaK":[],"contradictions":[],"experiments":["vary crosslinker ratio; SEM of char morphology + cohesion test"],"competingMechanisms":["insufficient crosslink density yields a friable char with poor cohesive strength"]},{"from":"app:solid","to":"app:char","id":"app_direct","mechanism":"direct charring (coarse)","status":"hypothesized","tier":"inferred","confidence":0.15,"evidence":[],"deltaK":[],"contradictions":[],"experiments":["expansion-ratio vs loading study; cone calorimeter"],"competingMechanisms":["too little blowing agent relative to char former gives low expansion and a thin insulating layer"]},{"from":"app:char","to":"app:char_oxidized","id":"fail_app_char_oxidation","mechanism":"oxidative char consumption","status":"candidate_new","tier":"inferred","confidence":null,"evidence":["scientific_paper"],"deltaK":["new state app:char_oxidized"],"contradictions":["conservation_of_mass"],"experiments":["TGA in air to measure char oxidation onset and rate"],"competingMechanisms":[]}],"legend":{"grounded":"green — sourced/standard","strong":"yellow — observed / mechanism-supported","inferred":"grey — inferred / hypothesized"}},"timeline":{"kind":"knowledge-position (build history — real)","note":"Per-formulation history (supplier change → measurement → ΔK) populates once real datasets flow through P0.1. These are the model-knowledge milestones of the build.","events":[{"label":"Ontology v1.0","event":"Material Behavior Model defined","delta":"states + transitions + 5 invariants"},{"label":"v1.0 → v1.1","event":"falsified by the stress test","delta":"added driver families, unknown/impossible, entropy"},{"label":"Stage B/C","event":"reliability + scientific reasoning loop","delta":"MRI, uncertainty, info-gain, planner, calibration, RRI"},{"label":"Failure KB","event":"external failure corpus grounded in standards","delta":"+8 competing mechanisms, +9 ΔK"},{"label":"First Flight","event":"Dataset 001 through G1–G6 (gated)","delta":"surprise @350 °C detected"},{"label":"Now","event":"current scientific position","delta":"app:solid → app:polyphosphoric_acid → app:char (Corroborated)"}]}};
+const SNAPSHOT = {"generated":"cockpit snapshot — projection of existing engines (no new capability)","flag":"illustrative (numeric values reference-class; provenance grounded in real standards)","cockpit":{"project":"APP/PER/MEL Intumescent — Dataset 001","dataFlag":"illustrative","gates":{"G1_humanSubmitter":true,"G2_provenanceConfirmed":true,"G3_evidenceGraded":true,"G4_noInventedChemistry":true,"G5_mbmMappingConfirmed":true,"G6_dualSignoff":true},"promotable":true,"verdict":"STOP","verdictReasons":["surprise cross-flagged against the failure corpus — escalate to Experiment Planner (C.4): o4"],"promotion":"OFF","accuracy":0.75,"observationClasses":{"observation":4,"context":1,"surprise":1,"artifact":0},"topHypothesis":{"route":"app:solid → app:polyphosphoric_acid → app:char","mri":0.4041,"epistemic":"Corroborated"},"proposedHypothesis":{"text":"char oxidation near 350 °C (unexpected endotherm)","epistemic":"Hypothesized","adversarial":"fail_app_char_oxidation"},"nextExperiment":"Increase DSC/TGA sampling 330–360 °C (in air) to resolve the 350 °C surprise","coPilotQuestions":["does the DSC show the compensating entropy/enthalpy change expected along app:solid → app:polyphosphoric_acid → app:char?","no observation near 280 °C for \"crosslinking route\" — was this step present under these conditions?","unexpected endotherm at 350 °C — which mechanism produces it?"]},"graph":{"nodes":[{"id":"app:solid","label":"solid"},{"id":"app:polyphosphoric_acid","label":"polyphosphoric_acid"},{"id":"app:char","label":"char"},{"id":"app:crosslinked","label":"crosslinked"},{"id":"app:char_oxidized","label":"char_oxidized"}],"edges":[{"from":"app:solid","to":"app:polyphosphoric_acid","id":"app_ppa1","mechanism":"polyphosphoric acid formation","status":"observed","tier":"grounded","confidence":0.48,"evidence":["illustrative","EN 13381-8 / ISO 834 (P0.1)"],"deltaK":[],"contradictions":[],"experiments":["TGA/DSC to compare APP activation onset vs binder decomposition onset"],"competingMechanisms":["APP releases polyphosphoric acid before the char-former/binder is ready, so acid is spent before crosslinking"]},{"from":"app:polyphosphoric_acid","to":"app:char","id":"app_ppa2","mechanism":"char formation","status":"mechanism_supported","tier":"grounded","confidence":0.42,"evidence":["illustrative","EN 13381-8 / ISO 834 (P0.1)"],"deltaK":[],"contradictions":[],"experiments":[],"competingMechanisms":[]},{"from":"app:solid","to":"app:crosslinked","id":"app_xl1","mechanism":"crosslinking","status":"mechanism_supported","tier":"strong","confidence":0.42,"evidence":["illustrative"],"deltaK":[],"contradictions":[],"experiments":[],"competingMechanisms":[]},{"from":"app:crosslinked","to":"app:char","id":"app_xl2","mechanism":"char formation (hypothesized route)","status":"hypothesized","tier":"inferred","confidence":0.15,"evidence":[],"deltaK":[],"contradictions":[],"experiments":["vary crosslinker ratio; SEM of char morphology + cohesion test"],"competingMechanisms":["insufficient crosslink density yields a friable char with poor cohesive strength"]},{"from":"app:solid","to":"app:char","id":"app_direct","mechanism":"direct charring (coarse)","status":"hypothesized","tier":"inferred","confidence":0.15,"evidence":[],"deltaK":[],"contradictions":[],"experiments":["expansion-ratio vs loading study; cone calorimeter"],"competingMechanisms":["too little blowing agent relative to char former gives low expansion and a thin insulating layer"]},{"from":"app:char","to":"app:char_oxidized","id":"fail_app_char_oxidation","mechanism":"oxidative char consumption","status":"candidate_new","tier":"inferred","confidence":null,"evidence":["scientific_paper"],"deltaK":["new state app:char_oxidized"],"contradictions":["conservation_of_mass"],"experiments":["TGA in air to measure char oxidation onset and rate"],"competingMechanisms":[]}],"legend":{"grounded":"green — sourced/standard","strong":"yellow — observed / mechanism-supported","inferred":"grey — inferred / hypothesized"}},"timeline":{"kind":"knowledge-position (build history — real)","note":"Per-formulation history (supplier change → measurement → ΔK) populates once real datasets flow through P0.1. These are the model-knowledge milestones of the build.","events":[{"label":"Ontology v1.0","event":"Material Behavior Model defined","delta":"states + transitions + 5 invariants"},{"label":"v1.0 → v1.1","event":"falsified by the stress test","delta":"added driver families, unknown/impossible, entropy"},{"label":"Stage B/C","event":"reliability + scientific reasoning loop","delta":"MRI, uncertainty, info-gain, planner, calibration, RRI"},{"label":"Failure KB","event":"external failure corpus grounded in standards","delta":"+8 competing mechanisms, +9 ΔK"},{"label":"First Flight","event":"Dataset 001 through G1–G6 (gated)","delta":"surprise @350 °C detected"},{"label":"Now","event":"current scientific position","delta":"app:solid → app:polyphosphoric_acid → app:char (Corroborated)"}]},"energy":{"current":{"experiments":3,"cost":5,"time":8,"deltaK":0.4437,"energy":270.453,"efficiency":0.0037},"comparison":{"ranked":[{"name":"lean program","experiments":3,"cost":2,"time":3,"deltaK":0.4437,"energy":40.568,"efficiency":0.0246},{"name":"APP Dataset 001","experiments":3,"cost":5,"time":8,"deltaK":0.4437,"energy":270.453,"efficiency":0.0037},{"name":"brute-force","experiments":40,"cost":3,"time":4,"deltaK":0.4437,"energy":1081.812,"efficiency":0.0009}],"mostEfficient":"lean program","leastEfficient":"brute-force"},"note":"illustrative — real cost/time arrive with lab data"},"phases":{"ladder":["Unknown","Inferred","StrongInferred","Corroborated","Grounded"],"band":{"Grounded":"stable","Confirmed":"stable","Corroborated":"stable","StrongInferred":"metastable","Inferred":"metastable","Unknown":"unstable","Contradiction":"unstable","KnowledgeDebt":"unstable","Refuted":"unstable"},"placed":{"cells":[{"id":"solid→polyphosphoric_acid","phase":"Grounded","band":"stable","rung":4},{"id":"polyphosphoric_acid→char","phase":"Grounded","band":"stable","rung":4},{"id":"solid→crosslinked","phase":"StrongInferred","band":"metastable","rung":2},{"id":"crosslinked→char","phase":"Inferred","band":"metastable","rung":1},{"id":"solid→char","phase":"Inferred","band":"metastable","rung":1},{"id":"char→char_oxidized","phase":"Contradiction","band":"unstable","rung":-1}],"counts":{"stable":2,"metastable":3,"unstable":1}},"law":"Knowledge moves only through adjacent phase transitions — an Observation never jumps to Grounded.","lawExamples":[{"move":"Inferred → Grounded","legal":false},{"move":"Inferred → StrongInferred","legal":true},{"move":"Grounded → Contradiction","legal":true}]},"transfer":{"domainSignature":{"name":"Fire Retardants (APP)","sequence":["Observation","Contradiction","Boundary","NewModel","Law"]},"candidates":[{"name":"Biology (illustrative)","sequence":["Observation","Contradiction","Boundary","NewModel","Law"],"similarity":1,"transferCandidate":true,"kind":"structural-similarity-only","disclaimer":"Structural similarity is NOT proof of causal similarity. This is a TRANSFER CANDIDATE for human review — never a prediction, never a transferred conclusion."}]}};
 const S = SNAPSHOT, main = document.getElementById('main');
 document.getElementById('flag').textContent = S.flag || '';
 const esc = (x) => String(x==null?'':x);
@@ -159,24 +162,88 @@ function edgeDetail(i){ const e=S.graph.edges[i]; const list=(a)=>a&&a.length?`<
     <div class="k">Contradictions</div>${list(e.contradictions)}
     <div class="k">Experiments</div>${list(e.experiments)}`; }
 
-function reactive(){
-  return `<div class="card concept"><h3>Reactive View — concept (illustrative)</h3>
-  <div class="muted" style="margin-bottom:10px">אנימציה סכמטית של תהליך ה-intumescent (מוכר, לא מדידה): מוצק → חומצה → פחם → פחם מתנפח. מושג ראשוני לחיבור עתידי לגרף.</div>
-  <svg viewBox="0 0 640 240">
-    <rect x="40" y="170" width="560" height="18" fill="#31415f"/>
-    <g>
-      <rect id="coat" x="120" y="120" width="400" height="48" fill="#4aa8ff" opacity="0.9"><animate attributeName="height" values="48;48;70;110" dur="6s" repeatCount="indefinite"/><animate attributeName="y" values="120;120;98;58" dur="6s" repeatCount="indefinite"/><animate attributeName="fill" values="#4aa8ff;#f4b740;#8a5a2b;#3a2a1a" dur="6s" repeatCount="indefinite"/></rect>
-      <text x="320" y="215" fill="#8fa2bd" font-size="12" text-anchor="middle">substrate</text>
-    </g>
-    <g font-size="12" fill="#e6edf6" text-anchor="middle">
-      <text x="120" y="40">solid</text><text x="270" y="40">→ acid</text><text x="410" y="40">→ char</text><text x="540" y="40">→ expanded</text>
-    </g>
-    <g opacity="0.7"><text x="320" y="70" fill="#e2565b" font-size="12" text-anchor="middle">surprise: char oxidation near 350°C (STOP → human)</text></g>
-  </svg></div>`;
+function phasediagram(){
+  const p=S.phases; if(!p) return '<div class="card">no phase data</div>';
+  const bands=[['stable','#2ec16b','Stable — Confirmed · Corroborated · Grounded'],['metastable','#f4b740','Metastable — Strong Inferred · Inferred'],['unstable','#e2565b','Unstable — Contradiction · Unknown · Debt']];
+  const cellsFor=(b)=>p.placed.cells.filter(c=>c.band===b).map(c=>`<span class="chip" title="${esc(c.phase)}">${esc(c.id)} · ${esc(c.phase)}</span>`).join(' ')||'<span class="muted">—</span>';
+  const laws=p.lawExamples.map(l=>`<div class="row"><span>${esc(l.move)}</span><span style="color:${l.legal?'#2ec16b':'#e2565b'}">${l.legal?'legal ✓':'ILLEGAL ✗'}</span></div>`).join('');
+  return `<div class="card" style="margin-bottom:14px"><h3>Knowledge Phase Diagram</h3>
+    <div class="muted" style="margin-bottom:10px">מצב הידע כפאזות. חוק: ${esc(p.law)}</div>
+    ${bands.map(([b,c,t])=>`<div class="card" style="border-color:${c}22;margin-bottom:10px"><div style="color:${c};font-size:13px;margin-bottom:6px">${t}</div><div class="chips">${cellsFor(b)}</div></div>`).join('')}
+  </div>
+  <div class="card"><h3>The no-jump law</h3><div class="muted" style="margin-bottom:8px">ידע עולה רק דרג אחד בכל פעם; הפרכה יכולה להפיל בכל עוצמה.</div>${laws}
+    <div style="margin-top:10px" class="chips">${p.ladder.map((r,i)=>`<span class="chip">${i}. ${esc(r)}</span>`).join(' → ')}</div></div>`;
 }
 
-const views={cockpit,timeline,graph,reactive};
-function render(v){ main.innerHTML=views[v](); document.querySelectorAll('nav button').forEach(b=>b.classList.toggle('active',b.dataset.view===v)); }
+function energy(){
+  const e=S.energy; if(!e) return '<div class="card">no energy data</div>';
+  const max=Math.max(...e.comparison.ranked.map(r=>r.energy));
+  const rows=e.comparison.ranked.map(r=>`<div class="row"><span>${esc(r.name)}</span><span>${r.energy}</span></div><div class="bar"><span style="width:${100*r.energy/max}%;background:${r.name===e.comparison.mostEfficient?'#2ec16b':'#f4b740'}"></span></div><div class="muted" style="margin-top:-6px">exp ${r.experiments} · cost ${r.cost} · time ${r.time} · ΔK ${r.deltaK}</div>`).join('');
+  return `<div class="grid">
+    <div class="card"><h3>Knowledge Energy — current</h3><div class="big">${e.current.energy}</div>
+      <div class="muted">= (experiments × cost × time) / ΔK &nbsp; → נמוך = יעיל</div>
+      <div class="muted" style="margin-top:8px">exp ${e.current.experiments} · cost ${e.current.cost} · time ${e.current.time} · ΔK ${e.current.deltaK}</div></div>
+    <div class="card"><h3>Comparison (illustrative)</h3>${rows}<div class="muted" style="margin-top:6px">most efficient: <b>${esc(e.comparison.mostEfficient)}</b></div></div>
+  </div>`;
+}
+
+function transfer(){
+  const t=S.transfer; if(!t) return '<div class="card">no transfer data</div>';
+  const sig=(s)=>s.map(x=>`<span class="chip">${esc(x)}</span>`).join(' → ');
+  return `<div class="card" style="margin-bottom:14px"><h3>Domain signature — ${esc(t.domainSignature.name)}</h3><div class="chips">${sig(t.domainSignature.sequence)}</div></div>
+    ${t.candidates.map(c=>`<div class="card"><div class="row"><h3 style="margin:0">${esc(c.name)}</h3><span class="badge ${c.transferCandidate?'PASS':'STOP'}">${c.transferCandidate?'TRANSFER CANDIDATE':'no match'}</span></div>
+      <div class="chips" style="margin:8px 0">${sig(c.sequence)}</div>
+      <div class="muted">structural similarity: ${c.similarity} · kind: ${esc(c.kind)}</div>
+      <div class="muted" style="margin-top:8px;color:#f4b740">⚠ ${esc(c.disclaimer)}</div></div>`).join('')}`;
+}
+
+let reactiveTimer=null;
+function reactive(){
+  setTimeout(initReactive,30);
+  return `<div class="card concept"><h3>Reactive — intumescent simulation (illustrative game)</h3>
+  <div class="muted" style="margin-bottom:10px">גרור את הטמפרטורה או לחץ Play. סכמטי בלבד — לא מדידה. חוצה 350°C ← מופיע ה-Surprise (STOP → אדם).</div>
+  <div class="row" style="align-items:center;gap:12px"><button id="rxPlay" class="chip">▶ Play</button>
+    <input id="rxTemp" type="range" min="20" max="600" value="20" style="flex:1"/>
+    <span id="rxTval" class="chip">20 °C</span></div>
+  <svg viewBox="0 0 640 300" style="margin-top:10px;height:300px">
+    <defs><linearGradient id="flame" x1="0" y1="1" x2="0" y2="0"><stop offset="0" stop-color="#e2565b"/><stop offset="1" stop-color="#f4b740"/></linearGradient></defs>
+    <rect x="40" y="250" width="560" height="20" fill="#31415f"/><text x="320" y="292" fill="#8fa2bd" font-size="12" text-anchor="middle">substrate</text>
+    <g id="rxFlames"></g>
+    <rect id="rxCoat" x="150" y="200" width="340" height="50" fill="#4aa8ff"/>
+    <text id="rxPhase" x="320" y="40" fill="#e6edf6" font-size="14" text-anchor="middle"></text>
+    <text id="rxStage" x="320" y="64" fill="#8fa2bd" font-size="12" text-anchor="middle"></text>
+    <text id="rxSurprise" x="320" y="90" fill="#e2565b" font-size="13" text-anchor="middle" opacity="0"></text>
+  </svg></div>`;
+}
+function initReactive(){
+  const temp=document.getElementById('rxTemp'), val=document.getElementById('rxVal')||document.getElementById('rxTval');
+  const coat=document.getElementById('rxCoat'), phase=document.getElementById('rxPhase'), stage=document.getElementById('rxStage'), sur=document.getElementById('rxSurprise'), flames=document.getElementById('rxFlames'), play=document.getElementById('rxPlay');
+  if(!temp) return;
+  function draw(T){
+    val.textContent=T+' °C';
+    // stage + phase by temperature (illustrative, matches app: route)
+    let s='solid', ph='Grounded', col='#4aa8ff', h=50, y=200;
+    if(T>=200&&T<300){s='volatilisation / acid onset';ph='StrongInferred';col='#f4b740';h=58;y=192;}
+    else if(T>=300&&T<340){s='polyphosphoric acid → char';ph='Corroborated';col='#8a5a2b';h=95;y=155;}
+    else if(T>=340){s='char (expanded)';ph='Grounded';col='#5a3a22';h=150;y=100;}
+    coat.setAttribute('fill',col); coat.setAttribute('height',h); coat.setAttribute('y',y);
+    phase.textContent='phase: '+ph; stage.textContent=s;
+    // flames scale with T
+    const n=Math.max(0,Math.round((T-100)/60)); let f='';
+    for(let i=0;i<n;i++){const x=120+i*45; f+=`<path d="M${x},250 q8,-30 0,-46 q16,16 8,46 z" fill="url(#flame)" opacity="0.8"/>`;}
+    flames.innerHTML=f;
+    // the surprise at 350
+    if(T>=350){ sur.setAttribute('opacity','1'); sur.textContent='⚠ SURPRISE: char oxidation near 350°C → STOP (human review)'; }
+    else sur.setAttribute('opacity','0');
+  }
+  temp.oninput=()=>{ if(reactiveTimer){clearInterval(reactiveTimer);reactiveTimer=null;play.textContent='▶ Play';} draw(+temp.value); };
+  play.onclick=()=>{ if(reactiveTimer){clearInterval(reactiveTimer);reactiveTimer=null;play.textContent='▶ Play';return;} play.textContent='⏸ Pause';
+    reactiveTimer=setInterval(()=>{ let v=+temp.value+8; if(v>600)v=20; temp.value=v; draw(v); },120); };
+  draw(20);
+}
+
+const views={cockpit,timeline,graph,phases:phasediagram,energy,transfer,reactive};
+function render(v){ if(reactiveTimer){clearInterval(reactiveTimer);reactiveTimer=null;} main.innerHTML=views[v](); document.querySelectorAll('nav button').forEach(b=>b.classList.toggle('active',b.dataset.view===v)); }
 document.querySelectorAll('nav button').forEach(b=>b.addEventListener('click',()=>render(b.dataset.view)));
 render('cockpit');
 </script>

@@ -15,6 +15,10 @@ import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 import { gatedFlight, passStop } from './p0-1-gated-flight.mjs';
 import { transitionConfidence } from './mbm-reliability.mjs';
+import { planExperiments } from './mbm-experiment-planner.mjs';
+import { phaseOfEdge, phaseOfEpistemic, placeOnDiagram, BAND, LADDER, legalTransition } from './knowledge-phase.mjs';
+import { knowledgeEnergy, compareProjects } from './knowledge-energy.mjs';
+import { signatureOf, matchSignatures } from './knowledge-transfer.mjs';
 
 const __dir = dirname(fileURLToPath(import.meta.url));
 const root = join(__dir, '..');
@@ -108,10 +112,44 @@ function buildSnapshot() {
     ]
   };
 
+  // --- Knowledge Energy -----------------------------------------------------
+  const plan = planExperiments(mbm, ['app_ppa1', 'app_ppa2'], { maxCost: 10, maxTime: 20 });
+  const current = { name: 'APP Dataset 001', experiments: plan.portfolio.length, cost: plan.spent.cost, time: plan.spent.time, deltaK: plan.expected.deltaMRI };
+  const energy = {
+    current: knowledgeEnergy(current),
+    comparison: compareProjects([
+      current,
+      { name: 'lean program', experiments: 3, cost: 2, time: 3, deltaK: plan.expected.deltaMRI },
+      { name: 'brute-force', experiments: 40, cost: 3, time: 4, deltaK: plan.expected.deltaMRI }
+    ]),
+    note: 'illustrative — real cost/time arrive with lab data'
+  };
+
+  // --- Knowledge Phase Diagram ---------------------------------------------
+  const phaseItems = graph.edges.map((e) => ({ id: `${e.from.replace('app:', '')}→${e.to.replace('app:', '')}`, phase: phaseOfEdge(e) }));
+  const placed = placeOnDiagram(phaseItems);
+  const phases = {
+    ladder: LADDER, band: BAND, placed,
+    law: 'Knowledge moves only through adjacent phase transitions — an Observation never jumps to Grounded.',
+    lawExamples: [
+      { move: 'Inferred → Grounded', legal: legalTransition('Inferred', 'Grounded') },
+      { move: 'Inferred → StrongInferred', legal: legalTransition('Inferred', 'StrongInferred') },
+      { move: 'Grounded → Contradiction', legal: legalTransition('Grounded', 'Contradiction') }
+    ]
+  };
+
+  // --- Knowledge Transfer (structural signatures only) ----------------------
+  const fireSig = signatureOf([{ stage: 'Observation' }, { stage: 'Contradiction' }, { stage: 'Boundary' }, { stage: 'NewModel' }, { stage: 'Law' }]);
+  const bioSig = signatureOf([{ stage: 'Observation' }, { stage: 'Contradiction' }, { stage: 'Boundary' }, { stage: 'NewModel' }, { stage: 'Law' }]);
+  const transfer = {
+    domainSignature: { name: 'Fire Retardants (APP)', sequence: fireSig },
+    candidates: [{ name: 'Biology (illustrative)', sequence: bioSig, ...matchSignatures(fireSig, bioSig) }]
+  };
+
   return {
     generated: 'cockpit snapshot — projection of existing engines (no new capability)',
     flag: 'illustrative (numeric values reference-class; provenance grounded in real standards)',
-    cockpit, graph, timeline
+    cockpit, graph, timeline, energy, phases, transfer
   };
 }
 
@@ -149,6 +187,13 @@ assert(snapshot.cockpit.observationClasses.surprise >= 1 && snapshot.cockpit.pro
 assert(snapshot.graph.edges.some((e) => e.tier === 'grounded') && snapshot.graph.edges.some((e) => e.tier === 'inferred'), 'graph edges are colour-tiered (grounded + inferred present)');
 assert(snapshot.graph.edges.some((e) => e.contradictions.length), 'graph carries at least one contradiction edge (char oxidation broken law)');
 assert(snapshot.timeline.events.length >= 4, 'timeline has knowledge milestones');
+// new layers
+assert(snapshot.energy && Number.isFinite(snapshot.energy.current.energy), 'Knowledge Energy computed');
+assert(snapshot.energy.comparison.ranked.length === 3 && snapshot.energy.comparison.mostEfficient, 'energy comparison ranks projects');
+assert(snapshot.phases && snapshot.phases.placed.cells.length === snapshot.graph.edges.length, 'phase diagram places every graph edge');
+assert(snapshot.phases.lawExamples.find((x) => x.move === 'Inferred → Grounded').legal === false, 'phase law: Inferred → Grounded is illegal (no jump)');
+assert(snapshot.transfer.candidates[0].transferCandidate === true && !('prediction' in snapshot.transfer.candidates[0]), 'transfer candidate is structural-only (no prediction)');
+console.log(`  energy: ${snapshot.energy.current.energy} (most efficient: ${snapshot.energy.comparison.mostEfficient}) · phases: ${JSON.stringify(snapshot.phases.placed.counts)} · transfer: ${snapshot.transfer.candidates[0].transferCandidate ? 'CANDIDATE' : 'none'}`);
 assert(JSON.stringify(buildSnapshot()) === JSON.stringify(snapshot), 'exporter is deterministic');
 
 console.log('');

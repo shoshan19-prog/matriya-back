@@ -220,5 +220,157 @@
         "delta": "app:solid → app:polyphosphoric_acid → app:char (Corroborated)"
       }
     ]
+  },
+  "energy": {
+    "current": {
+      "experiments": 3,
+      "cost": 5,
+      "time": 8,
+      "deltaK": 0.4437,
+      "energy": 270.453,
+      "efficiency": 0.0037
+    },
+    "comparison": {
+      "ranked": [
+        {
+          "name": "lean program",
+          "experiments": 3,
+          "cost": 2,
+          "time": 3,
+          "deltaK": 0.4437,
+          "energy": 40.568,
+          "efficiency": 0.0246
+        },
+        {
+          "name": "APP Dataset 001",
+          "experiments": 3,
+          "cost": 5,
+          "time": 8,
+          "deltaK": 0.4437,
+          "energy": 270.453,
+          "efficiency": 0.0037
+        },
+        {
+          "name": "brute-force",
+          "experiments": 40,
+          "cost": 3,
+          "time": 4,
+          "deltaK": 0.4437,
+          "energy": 1081.812,
+          "efficiency": 0.0009
+        }
+      ],
+      "mostEfficient": "lean program",
+      "leastEfficient": "brute-force"
+    },
+    "note": "illustrative — real cost/time arrive with lab data"
+  },
+  "phases": {
+    "ladder": [
+      "Unknown",
+      "Inferred",
+      "StrongInferred",
+      "Corroborated",
+      "Grounded"
+    ],
+    "band": {
+      "Grounded": "stable",
+      "Confirmed": "stable",
+      "Corroborated": "stable",
+      "StrongInferred": "metastable",
+      "Inferred": "metastable",
+      "Unknown": "unstable",
+      "Contradiction": "unstable",
+      "KnowledgeDebt": "unstable",
+      "Refuted": "unstable"
+    },
+    "placed": {
+      "cells": [
+        {
+          "id": "solid→polyphosphoric_acid",
+          "phase": "Grounded",
+          "band": "stable",
+          "rung": 4
+        },
+        {
+          "id": "polyphosphoric_acid→char",
+          "phase": "Grounded",
+          "band": "stable",
+          "rung": 4
+        },
+        {
+          "id": "solid→crosslinked",
+          "phase": "StrongInferred",
+          "band": "metastable",
+          "rung": 2
+        },
+        {
+          "id": "crosslinked→char",
+          "phase": "Inferred",
+          "band": "metastable",
+          "rung": 1
+        },
+        {
+          "id": "solid→char",
+          "phase": "Inferred",
+          "band": "metastable",
+          "rung": 1
+        },
+        {
+          "id": "char→char_oxidized",
+          "phase": "Contradiction",
+          "band": "unstable",
+          "rung": -1
+        }
+      ],
+      "counts": {
+        "stable": 2,
+        "metastable": 3,
+        "unstable": 1
+      }
+    },
+    "law": "Knowledge moves only through adjacent phase transitions — an Observation never jumps to Grounded.",
+    "lawExamples": [
+      {
+        "move": "Inferred → Grounded",
+        "legal": false
+      },
+      {
+        "move": "Inferred → StrongInferred",
+        "legal": true
+      },
+      {
+        "move": "Grounded → Contradiction",
+        "legal": true
+      }
+    ]
+  },
+  "transfer": {
+    "domainSignature": {
+      "name": "Fire Retardants (APP)",
+      "sequence": [
+        "Observation",
+        "Contradiction",
+        "Boundary",
+        "NewModel",
+        "Law"
+      ]
+    },
+    "candidates": [
+      {
+        "name": "Biology (illustrative)",
+        "sequence": [
+          "Observation",
+          "Contradiction",
+          "Boundary",
+          "NewModel",
+          "Law"
+        ],
+        "similarity": 1,
+        "transferCandidate": true,
+        "kind": "structural-similarity-only",
+        "disclaimer": "Structural similarity is NOT proof of causal similarity. This is a TRANSFER CANDIDATE for human review — never a prediction, never a transferred conclusion."
+      }
+    ]
   }
 }
