@@ -1,0 +1,224 @@
+{
+  "generated": "cockpit snapshot — projection of existing engines (no new capability)",
+  "flag": "illustrative (numeric values reference-class; provenance grounded in real standards)",
+  "cockpit": {
+    "project": "APP/PER/MEL Intumescent — Dataset 001",
+    "dataFlag": "illustrative",
+    "gates": {
+      "G1_humanSubmitter": true,
+      "G2_provenanceConfirmed": true,
+      "G3_evidenceGraded": true,
+      "G4_noInventedChemistry": true,
+      "G5_mbmMappingConfirmed": true,
+      "G6_dualSignoff": true
+    },
+    "promotable": true,
+    "verdict": "STOP",
+    "verdictReasons": [
+      "surprise cross-flagged against the failure corpus — escalate to Experiment Planner (C.4): o4"
+    ],
+    "promotion": "OFF",
+    "accuracy": 0.75,
+    "observationClasses": {
+      "observation": 4,
+      "context": 1,
+      "surprise": 1,
+      "artifact": 0
+    },
+    "topHypothesis": {
+      "route": "app:solid → app:polyphosphoric_acid → app:char",
+      "mri": 0.4041,
+      "epistemic": "Corroborated"
+    },
+    "proposedHypothesis": {
+      "text": "char oxidation near 350 °C (unexpected endotherm)",
+      "epistemic": "Hypothesized",
+      "adversarial": "fail_app_char_oxidation"
+    },
+    "nextExperiment": "Increase DSC/TGA sampling 330–360 °C (in air) to resolve the 350 °C surprise",
+    "coPilotQuestions": [
+      "does the DSC show the compensating entropy/enthalpy change expected along app:solid → app:polyphosphoric_acid → app:char?",
+      "no observation near 280 °C for \"crosslinking route\" — was this step present under these conditions?",
+      "unexpected endotherm at 350 °C — which mechanism produces it?"
+    ]
+  },
+  "graph": {
+    "nodes": [
+      {
+        "id": "app:solid",
+        "label": "solid"
+      },
+      {
+        "id": "app:polyphosphoric_acid",
+        "label": "polyphosphoric_acid"
+      },
+      {
+        "id": "app:char",
+        "label": "char"
+      },
+      {
+        "id": "app:crosslinked",
+        "label": "crosslinked"
+      },
+      {
+        "id": "app:char_oxidized",
+        "label": "char_oxidized"
+      }
+    ],
+    "edges": [
+      {
+        "from": "app:solid",
+        "to": "app:polyphosphoric_acid",
+        "id": "app_ppa1",
+        "mechanism": "polyphosphoric acid formation",
+        "status": "observed",
+        "tier": "grounded",
+        "confidence": 0.48,
+        "evidence": [
+          "illustrative",
+          "EN 13381-8 / ISO 834 (P0.1)"
+        ],
+        "deltaK": [],
+        "contradictions": [],
+        "experiments": [
+          "TGA/DSC to compare APP activation onset vs binder decomposition onset"
+        ],
+        "competingMechanisms": [
+          "APP releases polyphosphoric acid before the char-former/binder is ready, so acid is spent before crosslinking"
+        ]
+      },
+      {
+        "from": "app:polyphosphoric_acid",
+        "to": "app:char",
+        "id": "app_ppa2",
+        "mechanism": "char formation",
+        "status": "mechanism_supported",
+        "tier": "grounded",
+        "confidence": 0.42,
+        "evidence": [
+          "illustrative",
+          "EN 13381-8 / ISO 834 (P0.1)"
+        ],
+        "deltaK": [],
+        "contradictions": [],
+        "experiments": [],
+        "competingMechanisms": []
+      },
+      {
+        "from": "app:solid",
+        "to": "app:crosslinked",
+        "id": "app_xl1",
+        "mechanism": "crosslinking",
+        "status": "mechanism_supported",
+        "tier": "strong",
+        "confidence": 0.42,
+        "evidence": [
+          "illustrative"
+        ],
+        "deltaK": [],
+        "contradictions": [],
+        "experiments": [],
+        "competingMechanisms": []
+      },
+      {
+        "from": "app:crosslinked",
+        "to": "app:char",
+        "id": "app_xl2",
+        "mechanism": "char formation (hypothesized route)",
+        "status": "hypothesized",
+        "tier": "inferred",
+        "confidence": 0.15,
+        "evidence": [],
+        "deltaK": [],
+        "contradictions": [],
+        "experiments": [
+          "vary crosslinker ratio; SEM of char morphology + cohesion test"
+        ],
+        "competingMechanisms": [
+          "insufficient crosslink density yields a friable char with poor cohesive strength"
+        ]
+      },
+      {
+        "from": "app:solid",
+        "to": "app:char",
+        "id": "app_direct",
+        "mechanism": "direct charring (coarse)",
+        "status": "hypothesized",
+        "tier": "inferred",
+        "confidence": 0.15,
+        "evidence": [],
+        "deltaK": [],
+        "contradictions": [],
+        "experiments": [
+          "expansion-ratio vs loading study; cone calorimeter"
+        ],
+        "competingMechanisms": [
+          "too little blowing agent relative to char former gives low expansion and a thin insulating layer"
+        ]
+      },
+      {
+        "from": "app:char",
+        "to": "app:char_oxidized",
+        "id": "fail_app_char_oxidation",
+        "mechanism": "oxidative char consumption",
+        "status": "candidate_new",
+        "tier": "inferred",
+        "confidence": null,
+        "evidence": [
+          "scientific_paper"
+        ],
+        "deltaK": [
+          "new state app:char_oxidized"
+        ],
+        "contradictions": [
+          "conservation_of_mass"
+        ],
+        "experiments": [
+          "TGA in air to measure char oxidation onset and rate"
+        ],
+        "competingMechanisms": []
+      }
+    ],
+    "legend": {
+      "grounded": "green — sourced/standard",
+      "strong": "yellow — observed / mechanism-supported",
+      "inferred": "grey — inferred / hypothesized"
+    }
+  },
+  "timeline": {
+    "kind": "knowledge-position (build history — real)",
+    "note": "Per-formulation history (supplier change → measurement → ΔK) populates once real datasets flow through P0.1. These are the model-knowledge milestones of the build.",
+    "events": [
+      {
+        "label": "Ontology v1.0",
+        "event": "Material Behavior Model defined",
+        "delta": "states + transitions + 5 invariants"
+      },
+      {
+        "label": "v1.0 → v1.1",
+        "event": "falsified by the stress test",
+        "delta": "added driver families, unknown/impossible, entropy"
+      },
+      {
+        "label": "Stage B/C",
+        "event": "reliability + scientific reasoning loop",
+        "delta": "MRI, uncertainty, info-gain, planner, calibration, RRI"
+      },
+      {
+        "label": "Failure KB",
+        "event": "external failure corpus grounded in standards",
+        "delta": "+8 competing mechanisms, +9 ΔK"
+      },
+      {
+        "label": "First Flight",
+        "event": "Dataset 001 through G1–G6 (gated)",
+        "delta": "surprise @350 °C detected"
+      },
+      {
+        "label": "Now",
+        "event": "current scientific position",
+        "delta": "app:solid → app:polyphosphoric_acid → app:char (Corroborated)"
+      }
+    ]
+  }
+}

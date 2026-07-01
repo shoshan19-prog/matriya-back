@@ -33,6 +33,7 @@
     "test:ingestion-design": "node scripts/ingestion-design-check.mjs",
     "test:first-flight": "node scripts/first-flight.mjs",
     "test:golden-suite": "node scripts/golden-suite.mjs",
+    "cockpit:export": "node scripts/export-cockpit-snapshot.mjs",
     "test:p0-1-gated": "node scripts/p0-1-gated-flight.mjs",
     "verify:scope-signoff": "node scripts/verify-scope-signoff.mjs",
     "verify:david-checklist": "node scripts/verify-david-checklist.mjs",
