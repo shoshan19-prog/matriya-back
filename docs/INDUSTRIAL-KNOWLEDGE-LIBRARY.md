@@ -7,6 +7,8 @@ answer not only *"what product should I use?"* but *why it works*, *where it
 fails*, *what alternatives exist*, and *what the next opportunity is*.
 
 This document describes the backend foundation delivered in `matriya-back`.
+For the full v2.0 requirements — separating knowledge base, engines and future
+vision — see [`IKL-REQUIREMENTS-v2.md`](./IKL-REQUIREMENTS-v2.md).
 
 ## Core principles (enforced in code)
 
