@@ -93,10 +93,17 @@ the whole point of the C.2→C.3 chain.
 ## Stage C roadmap
 
 C.1 Alternative Path Generator ✅ · C.2 Uncertainty Attribution ✅ · **C.3
-Information Gain Engine ✅** · C.4 Experiment Planner (portfolio selection: IG ÷
-cost×time, consumes C.3's `efficiency`/`competingResolved`) · C.5 Historical
-Learning (update source-reliability from realised vs. predicted gain) · C.6
-Reliability-Gated Decision Hand-off · C.7 Uncertainty Budget Burndown.
+Information Gain Engine ✅** · C.4 Experiment Planner ✅ (portfolio selection: IG ÷
+cost×time, consumes C.3's `efficiency`/`competingResolved`/`experimentType` — see
+`MBM-Stage-C-ExperimentPlanner.md`) · C.5 Historical Learning · C.6
+Reliability-Gated Decision Hand-off · C.7 Uncertainty Budget Burndown · C.8
+Knowledge Tension Map · C.9 Explicit Epistemic State · C.10 Prediction Calibration
+· C.11 Mechanism Consensus · C.12 Research Readiness Index · C.13 Contradiction
+Memory · C.14 Evidence Aging · C.15 Discovery Opportunity Map.
+
+Note: C.3 candidates now also carry a scientific `experimentType` (Measurement /
+Validation today; Perturbation / Comparison / StressTest recognised in the
+taxonomy), consumed by C.4.
 
 ### Two further integrating ideas (from review, added to the roadmap)
 

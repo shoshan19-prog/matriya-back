@@ -41,11 +41,20 @@ const INSTRUMENT_RELEVANCE = {
 // Placeholder units — real values arrive with the lab's own data. Reported for
 // C.4 to optimise against; C.3 does NOT rank by them.
 const COST_TIME = {
-  observe: { cost: 1, time: 2 },
+  observe: { cost: 1, time: 2 }, validate: { cost: 1, time: 2 },
   tga: { cost: 2, time: 3 }, dsc: { cost: 2, time: 3 }, ftir: { cost: 2, time: 2 },
   xrd: { cost: 3, time: 3 }, sem: { cost: 3, time: 4 }, uv_vis: { cost: 1, time: 1 }
 };
 const UNVALIDATED = (s) => s === 'hypothesized' || s === 'predicted';
+
+// Scientific experiment-type taxonomy (a review point: an experiment is not just
+// a measurement). C.3 auto-generates the two types it can honestly simulate as a
+// single-transition confidence change — Measurement (observe/instrument) and
+// Validation (replicate an observed result). Perturbation (change a driver to
+// test causality), Comparison (discriminate competing mechanisms) and StressTest
+// (probe validity boundaries) are recognised types whose planning needs
+// driver-level / cross-path modelling — carried in the taxonomy, generated later.
+export const EXPERIMENT_TYPES = ['Measurement', 'Validation', 'Perturbation', 'Comparison', 'StressTest'];
 
 // Build the modified model with `target` replaced by `patch`.
 const withPatch = (doc, target, patch) => ({
@@ -54,30 +63,36 @@ const withPatch = (doc, target, patch) => ({
 });
 
 // Candidate experiments derived from the path's own deficits (no fabrication).
-function candidatesFor(doc, ids) {
+// Each carries an `experimentType` (a review point — type is part of the model).
+export function candidatesFor(doc, ids) {
   const byId = Object.fromEntries((doc.transitions || []).map((t) => [t.id, t]));
   const out = [];
   for (const id of ids) {
     const t = byId[id];
     const { tier } = transitionConfidence(t);
-    // observe: only meaningful if the step is not yet observed-or-better.
+    // observe (Measurement): only meaningful if the step is not yet observed-or-better.
     if (UNVALIDATED(t.status)) {
-      out.push({ id: `observe:${id}`, kind: 'observe', target: id, instrument: null, projects: 'status → observed', ...COST_TIME.observe });
+      out.push({ id: `observe:${id}`, kind: 'observe', experimentType: 'Measurement', target: id, instrument: null, projects: 'status → observed', ...COST_TIME.observe });
     }
-    // instrument: only if a relevant instrument exists and evidence isn't already tier-1.
+    // instrument (Measurement): only if a relevant instrument exists and evidence isn't already tier-1.
     const relevant = [...new Set((t.drivers || []).flatMap((d) => INSTRUMENT_RELEVANCE[d] || []))].filter((i) => COST_TIME[i]);
     if (relevant.length && tier < 1.0) {
       const instr = relevant[0];
-      out.push({ id: `instrument:${id}:${instr}`, kind: 'instrument', target: id, instrument: instr, projects: `add ${instr.toUpperCase()} (tier-1)${UNVALIDATED(t.status) ? ' + status → observed' : ''}`, ...COST_TIME[instr] });
+      out.push({ id: `instrument:${id}:${instr}`, kind: 'instrument', experimentType: 'Measurement', target: id, instrument: instr, projects: `add ${instr.toUpperCase()} (tier-1)${UNVALIDATED(t.status) ? ' + status → observed' : ''}`, ...COST_TIME[instr] });
+    }
+    // validate (Validation): replicate an already-observed result to raise it to 'replicated'.
+    if (t.status === 'observed') {
+      out.push({ id: `validate:${id}`, kind: 'validate', experimentType: 'Validation', target: id, instrument: null, projects: 'status → replicated', ...COST_TIME.validate });
     }
   }
   return out;
 }
 
-function applyCandidate(doc, cand) {
+export function applyCandidate(doc, cand) {
   const byId = Object.fromEntries((doc.transitions || []).map((t) => [t.id, t]));
   const t = byId[cand.target];
   if (cand.kind === 'observe') return withPatch(doc, cand.target, { status: 'observed' });
+  if (cand.kind === 'validate') return withPatch(doc, cand.target, { status: 'replicated' });
   // instrument: add tier-1 evidence; promote an unvalidated step to observed.
   const evidence = [...(t.evidence || []), { documentType: cand.instrument }];
   const status = UNVALIDATED(t.status) ? 'observed' : t.status;
@@ -106,7 +121,7 @@ export function informationGain(doc, ids) {
     const competing = alts.filter((p) => p.ids.includes(cand.target)).map((p) => p.route.join(' → '));
     const costTime = cand.cost * cand.time;
     return {
-      id: cand.id, kind: cand.kind, target: cand.target, instrument: cand.instrument, projects: cand.projects,
+      id: cand.id, kind: cand.kind, experimentType: cand.experimentType, target: cand.target, instrument: cand.instrument, projects: cand.projects,
       deltaMRI, attacks, reduces,
       competingResolved: competing,
       cost: cand.cost, time: cand.time,
