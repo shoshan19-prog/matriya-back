@@ -26,6 +26,7 @@ vision — see [`IKL-REQUIREMENTS-v2.md`](./IKL-REQUIREMENTS-v2.md).
 - `iklModels.js` — Sequelize models for all layers + the `IKL_LAYERS` registry.
 - `iklEndpoints.js` — the `/ikl` router (generic CRUD + search + bulk + graph + connections).
 - `iklVectorStore.js` — semantic search over the separate `ikl_embeddings` collection.
+- `iklSearchEngine.js` — `runSearch(input, ctx) → Result` (Engine 1 under Engine Contract v1.1); the `/ikl/search` route is a thin, behaviour-preserving adapter over it. Tested by `scripts/test-run-search-g7.mjs`.
 - `sql/industrial_knowledge_library.sql` — production DDL (run in Supabase SQL Editor).
 - `scripts/seed-ikl-vocabulary.js` — seeds controlled vocabulary only.
 - Wired into `server.js` via `app.use('/ikl', iklRouter)`.

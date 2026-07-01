@@ -30,6 +30,7 @@ import {
   sequelize
 } from './iklModels.js';
 import { getIklVectorStore, indexRecord } from './iklVectorStore.js';
+import { runSearch, searchResultToLegacyResponse } from './iklSearchEngine.js';
 
 const router = express.Router();
 
@@ -340,44 +341,14 @@ router.post('/connections/:id/validate', ensureDbInitialized, requireAdmin, asyn
 // ---------------------------------------------------------------------------
 // Semantic search over the IKL (separate vector collection from Fresco RAG)
 // ---------------------------------------------------------------------------
+// G7: the route is now a thin adapter over the runSearch engine (Engine 1,
+// Engine Contract v1.1). Behaviour is unchanged — searchResultToLegacyResponse
+// reproduces the exact legacy body; unexpected errors still flow to sendError.
 router.post('/search', ensureDbInitialized, requireAuth, async (req, res) => {
   try {
-    const query = (req.body?.query || req.body?.q || '').toString().trim();
-    if (!query) return res.status(400).json({ error: 'query is required' });
-    const limit = Math.min(parseInt(req.body?.limit, 10) || 10, 100);
-    const layerFilter = req.body?.layer;
-    if (layerFilter && !IKL_LAYERS[layerFilter]) {
-      return res.status(400).json({ error: `Unknown layer '${layerFilter}'`, layers: Object.keys(IKL_LAYERS) });
-    }
-    const filter = layerFilter ? { layer: layerFilter } : null;
-    const hits = await getIklVectorStore().search(query, limit, filter);
-
-    // Hydrate matched records (grouped per layer to minimise queries).
-    const byLayer = {};
-    for (const h of hits) {
-      const key = h.metadata?.layer;
-      const rid = h.metadata?.record_id;
-      if (!key || !IKL_LAYERS[key] || rid == null) continue;
-      (byLayer[key] ||= new Map()).set(Number(rid), h.distance);
-    }
-    const records = {};
-    for (const [key, idMap] of Object.entries(byLayer)) {
-      const rows = await IKL_LAYERS[key].model.findAll({
-        where: { id: Array.from(idMap.keys()) },
-        include: [{ model: IklSource, as: 'source', required: false }]
-      });
-      for (const row of rows) records[`${key}:${row.id}`] = row;
-    }
-    const items = hits
-      .map((h) => {
-        const key = h.metadata?.layer;
-        const rid = h.metadata?.record_id;
-        const rec = records[`${key}:${rid}`];
-        if (!rec) return null;
-        return { layer: key, score: h.distance, snippet: h.document, record: rec };
-      })
-      .filter(Boolean);
-    res.json({ query, total: items.length, items });
+    const result = await runSearch(req.body || {});
+    const { httpStatus, body } = searchResultToLegacyResponse(result);
+    return res.status(httpStatus).json(body);
   } catch (e) {
     sendError(res, e, 'search');
   }

@@ -63,12 +63,16 @@ Every gap is **additive** — an adapter around Search, not a change to it.
 - **G6 — Untyped failure modes.** Errors are `{error: "..."}` + HTTP codes, not
   stable `E_*` codes. *Fix:* map to `E_QUERY_REQUIRED`, `E_UNKNOWN_LAYER`,
   `E_INDEX_EMPTY`, `E_EMBED_UNAVAILABLE`, `E_DB_UNAVAILABLE`.
-- **G7 — Engine logic is an HTTP handler, not a pure function.** Core search is
-  bound to `(req,res)` + `requireAuth`. For true plug-and-play the core should be
-  callable as `run(input, context) → Result`, with auth/host concerns *outside*
-  the engine. *Fix (later):* extract a pure `runSearch(input, ctx)`; the route
-  becomes a thin caller. **Not done now** (would be a refactor — out of scope,
-  and explicitly deferred by instruction).
+- **G7 — DONE.** Core search is now a pure `runSearch(input, ctx) → Result` in
+  [`../../iklSearchEngine.js`](../../iklSearchEngine.js); the `/ikl/search` route
+  is a thin adapter (`searchResultToLegacyResponse`) with **no behaviour change**.
+  Dependencies (vector store / layers / source model) are injectable via `ctx`.
+  The Result is the Engine Contract v1.1 envelope (`emits: [observation,
+  evidence]` — never `decision`; `reasoning.confidenceType: semantic_similarity`).
+  Proven by `scripts/test-run-search-g7.mjs` (legacy body byte-identical, `||`
+  fallback + limit-clamp + error responses preserved, envelope conforms to the
+  frozen manifest). *Remaining, still additive:* auth stays a host concern at the
+  route (not inside the engine); G1/G2/G3/G6/G8 unchanged.
 - **G8 — Reasoning Signature is declared but not emitted at runtime (v0.2).** The
   manifest states `class: retrieval` / `confidenceType: semantic_similarity`, but
   the response does not attach the per-output signature (`reasoningClass`,
