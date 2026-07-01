@@ -1,0 +1,24 @@
+{
+  "apiVersion": "first-flight/v1",
+  "flag": "illustrative",
+  "note": "Golden-suite DRY-RUN dataset #002. ILLUSTRATIVE reference-class thermal events for an inorganic/alkyl silicate coating — NOT real lab data. Silicate is deliberately a system the MBM does NOT yet model (its states live only in the failure corpus), so this tests that the pipeline reports a NEW REGION honestly instead of fabricating an APP-like path. A surprise and an assumption-context anomaly are planted.",
+  "datasetId": "dataset_002_silicate",
+  "system": "inorganic/alkyl silicate coating",
+  "domain": "silicate",
+  "mbmEndpoints": { "from": "silicate:wet_film", "to": "silicate:cured" },
+  "assumptions": [
+    { "id": "humidity", "statement": "cure at RH 50%", "value": 50, "holds": true },
+    { "id": "heating_rate", "statement": "heating rate 10 °C/min", "value": 10, "holds": true }
+  ],
+  "observations": [
+    { "id": "si1", "technique": "TGA", "kind": "mass_loss", "tempC": 110, "magnitude": "~6%" },
+    { "id": "si2", "technique": "DSC", "kind": "endotherm", "tempC": 180, "magnitude": "moderate" },
+    { "id": "si3", "technique": "TGA", "kind": "mass_loss", "tempC": 700, "magnitude": "~4%" },
+    { "id": "si4", "technique": "TGA", "kind": "mass_loss", "tempC": 95, "magnitude": "~3%", "contextDependent": { "assumption": "humidity", "atValue": 30 } }
+  ],
+  "expectedTransitions": [
+    { "label": "solvent / water loss", "mbmTransition": null, "aboutTempC": 110 },
+    { "label": "silanol condensation (network formation)", "mbmTransition": null, "aboutTempC": 180 },
+    { "label": "full densification", "mbmTransition": null, "aboutTempC": 250 }
+  ]
+}

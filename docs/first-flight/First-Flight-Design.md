@@ -75,9 +75,34 @@ Harness: `npm run test:first-flight`. Logic: `scripts/first-flight.mjs`
   and a human gate; assumption-fragile conclusions surfaced; drift monitor fires
   only over budget; the whole flight is a deterministic golden replay.
 
+## Golden Suite — regression + anti-overfit (option A)
+
+Before touching real data, a short golden suite runs the **same** harness over
+three illustrative chemistries to prove the pipeline is not fitted to APP:
+`scripts/golden-suite.mjs` (`test:golden-suite`) over datasets #001 APP/PER/MEL,
+#002 silicate, #003 cementitious.
+
+| Dataset | Accuracy | Hypotheses | New region | Surprise | Context |
+|---------|---------:|-----------:|:----------:|:--------:|:-------:|
+| APP/PER/MEL | 75% | 3 | no | 1 (350 °C) | o5 |
+| silicate | 67% | 0 | **yes** | 1 | si4 |
+| cementitious | 75% | 0 | **yes** | 1 | ce5 |
+
+**Anti-overfit result:** the same pipe generates ranked hypotheses **only where
+the MBM actually models the system** (APP's thermal path) and, for systems it does
+not model (silicate; cementitious thermal decomposition), reports an honest **NEW
+REGION** — it fabricates no APP-like route — while still separating context from
+surprise and proposing (never deciding) in every case. Every flight is a
+deterministic golden replay, and the suite's mean prediction error (0.28) sits
+within the drift budget — the healthy baseline that guards against silent
+behaviour drift as the MBM evolves.
+
+(Hypothesis generation for *modelled* non-APP systems is independently covered by
+`test:mbm-altpaths`, which ranks paths across epoxy/silane/concrete/steel.)
+
 ## Boundaries honoured
 
 ❌ no ingestion · ❌ no fetch · ❌ no autonomous decision (report proposes, humans
-dispose) · ❌ no invented chemistry (illustrative dataset, flagged) · MRI/RRI are
-gauges. The first *real* flight = run this harness on a human-verified dataset that
-has passed G1–G6.
+dispose) · ❌ no invented chemistry (illustrative datasets, flagged) · MRI/RRI are
+gauges. The first *real* flight (P0.1) = run this harness on **one** human-verified
+dataset that has passed G1–G6.

@@ -42,16 +42,22 @@ export function runFirstFlight(mbm, failureCorpus, dataset) {
     weakest: p.weakest.id
   }));
 
-  // Prediction accuracy: each expected transition matched by an observation near its temperature?
+  // Only NOMINAL observations (not condition-dependent) can validate a prediction
+  // or corroborate a step — a context-dependent event is about conditions, so it is
+  // always triaged by Surveillance, never counted as clean support.
+  const nominal = obs.filter((o) => !o.contextDependent);
+
+  // Prediction accuracy: each expected transition matched by a nominal observation near its temperature?
   const predictions = expected.map((e) => {
-    const hit = obs.find((o) => near(o.tempC, e.aboutTempC));
+    const hit = nominal.find((o) => near(o.tempC, e.aboutTempC));
     return { label: e.label, mbmTransition: e.mbmTransition, aboutTempC: e.aboutTempC, matched: Boolean(hit), by: hit ? hit.id : null };
   });
   const accuracy = round(predictions.filter((p) => p.matched).length / (predictions.length || 1));
 
   // P2 — Surveillance: triage every observation that does not sit near ANY expected
-  // transition (an observation near a matched step is CORROBORATING, not a surprise).
-  const explains = new Set(obs.filter((o) => expected.some((e) => near(o.tempC, e.aboutTempC))).map((o) => o.id));
+  // transition (a nominal observation near a matched step is CORROBORATING, not a
+  // surprise). Context-dependent observations are never "explaining" — always triaged.
+  const explains = new Set(nominal.filter((o) => expected.some((e) => near(o.tempC, e.aboutTempC))).map((o) => o.id));
   const domainCorpus = (failureCorpus.cases || []).filter((c) => c.domain === dataset.domain);
   const surveillance = obs.filter((o) => !explains.has(o.id)).map((o) => {
     // 1) assumption/context check FIRST — the iron rule: an assumption-broken
@@ -71,7 +77,7 @@ export function runFirstFlight(mbm, failureCorpus, dataset) {
 
   // P3 — Co-pilot: machine recommendation + the targeted questions it needs answered.
   const coPilot = {
-    recommendation: hypotheses[0] ? `most credible route: ${hypotheses[0].route} (MRI ${hypotheses[0].mri}, ${hypotheses[0].epistemic})` : 'no route',
+    recommendation: hypotheses[0] ? `most credible route: ${hypotheses[0].route} (MRI ${hypotheses[0].mri}, ${hypotheses[0].epistemic})` : 'no route in the current model — candidate NEW REGION (do not fabricate a path)',
     questions: [
       ...hypotheses.slice(0, 1).map((h) => `does the DSC show the compensating entropy/enthalpy change expected along ${h.route}?`),
       ...predictions.filter((p) => !p.matched).map((p) => `no observation near ${p.aboutTempC} °C for "${p.label}" — was this step present under these conditions?`),
@@ -102,6 +108,7 @@ export function runFirstFlight(mbm, failureCorpus, dataset) {
       proposedUpdates,
       assumptionValidated,
       assumptionFragile,
+      newRegion: hypotheses.length === 0, // the MBM has no route for this system yet — honest, not fabricated
       promotionApplied: false, // P4 + idea #2: a single flight never promotes
       promotionRule: 'Corroborated requires ≥3 independent datasets AND ≥2 distinct techniques'
     }

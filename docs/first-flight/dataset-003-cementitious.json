@@ -1,0 +1,26 @@
+{
+  "apiVersion": "first-flight/v1",
+  "flag": "illustrative",
+  "note": "Golden-suite DRY-RUN dataset #003. ILLUSTRATIVE reference-class thermogravimetric events for a cementitious plaster (free water, portlandite dehydroxylation, carbonate decomposition are standard TGA features) — NOT real lab data. The MBM models concrete's mechanical/chemical degradation, not its thermal decomposition, so this too is a NEW REGION for the pipeline — testing it does not force an APP-like path. A surprise and an assumption-context anomaly are planted.",
+  "datasetId": "dataset_003_cementitious",
+  "system": "cementitious plaster / cement paste",
+  "domain": "cementitious",
+  "mbmEndpoints": { "from": "concrete:intact", "to": "concrete:thermally_decomposed" },
+  "assumptions": [
+    { "id": "inert_atmosphere", "statement": "TGA under inert (N2) atmosphere", "holds": true },
+    { "id": "heating_rate", "statement": "heating rate 10 °C/min", "value": 10, "holds": true }
+  ],
+  "observations": [
+    { "id": "ce1", "technique": "TGA", "kind": "mass_loss", "tempC": 110, "magnitude": "~8%" },
+    { "id": "ce2", "technique": "TGA", "kind": "mass_loss", "tempC": 450, "magnitude": "~5%" },
+    { "id": "ce3", "technique": "TGA", "kind": "mass_loss", "tempC": 700, "magnitude": "~10%" },
+    { "id": "ce4", "technique": "DSC", "kind": "exotherm", "tempC": 550, "magnitude": "small" },
+    { "id": "ce5", "technique": "TGA", "kind": "mass_loss", "tempC": 400, "magnitude": "~3%", "contextDependent": { "assumption": "inert_atmosphere", "atValue": "CO2 atmosphere" } }
+  ],
+  "expectedTransitions": [
+    { "label": "free / bound water loss", "mbmTransition": null, "aboutTempC": 110 },
+    { "label": "C-S-H / ettringite dehydration", "mbmTransition": null, "aboutTempC": 150 },
+    { "label": "portlandite dehydroxylation", "mbmTransition": null, "aboutTempC": 450 },
+    { "label": "carbonate decomposition", "mbmTransition": null, "aboutTempC": 700 }
+  ]
+}
