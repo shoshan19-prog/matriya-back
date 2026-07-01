@@ -13,8 +13,9 @@ requirements spec. Its organizing principle is a deliberate separation of
 - **Part I — Knowledge Base** *(what the system knows)* — the data layers,
   their schema, provenance and lifecycle. This is largely built.
 - **Part II — Engines** *(what the system does with what it knows)* — the
-  specialist reasoning/compute layer (Engines 1–18, plus decision/discovery
-  engines 21 & 25). Almost entirely not yet built.
+  specialist reasoning/compute layer (Engines 1–18, decision/discovery engines
+  21 & 25, and the visualization/explanation engine 27). Almost entirely not yet
+  built.
 - **Part II+ — Orchestration Tier** *(who decides)* — the decision layer that
   conducts the engines: the Orchestrator, Learning Priority (19), Interface
   Network (20), Knowledge Gap (22), Autonomous Experiment Planner (23),
@@ -158,9 +159,10 @@ pipeline). The system should gradually absorb:
 Each engine reads the knowledge base and produces derived, provenance-tagged,
 non-auto-validated output. **Engine 1 is partially built; the rest are not.**
 Engines 1–18 are the specialist tactical/strategic engines; 21 (Trade-off) and 25
-(Strategic Opportunity) are cross-cutting decision/discovery engines; **19, 20,
-22, 23, 24, 26 are meta-engines** that belong to the Orchestration Tier
-(Part II+) and are listed in this table only for a single numbered index.
+(Strategic Opportunity) are cross-cutting decision/discovery engines; 27
+(Scientific Visualization) is the presentation/explanation layer; **19, 20, 22,
+23, 24, 26 are meta-engines** that belong to the Orchestration Tier (Part II+)
+and are listed in this table only for a single numbered index.
 
 | # | Engine | Bucket | Status | Primary inputs | Notes / what "new arch" means here |
 |--:|--------|--------|--------|----------------|-------------------------------------|
@@ -190,18 +192,21 @@ Engines 1–18 are the specialist tactical/strategic engines; 21 (Trade-off) and
 | 24 | **Industrial Memory Engine** | Loop infrastructure | 🟠 | decisions, experiments, outcomes (internal) | Organizational memory: decision → reason → experiment → outcome → lesson. **Realizes** Layer 14 Knowledge Events + evolution chains as an active capture engine. Spec **II+.6**. |
 | 25 | **Strategic Opportunity Engine** | Strategy / discovery | 🟠→🔭 | market, competitors, patents, regulation, trends + **internal capabilities** | Hunts *opportunities* (not problems): Opportunity Score + "you already hold the mechanism to enter this market." Extends Engines 11 & 13; shares the Fresco-DNA overlay (Principle 5). Spec **II.6**. |
 | 26 | **Meta-Learning Engine** | Apex meta-engine | 🔭 | the entire decision/experiment history | Learns **how the organization discovers knowledge** — which experiment types led to breakthroughs, which mistakes recur, which strategies/teams excel. Improves the *innovation process itself*. Spec **II+.7**. |
+| 27 | **Scientific Visualization Engine** | Presentation / explanation | 🟠→🔭 | mechanisms, interfaces, formula/experiment history, fire/aging, the loop | Renders knowledge as **mechanism**, not data: molecular views, mechanism animations, interface/process/fire simulations, and a Google-Maps-style multi-scale zoom (Building→Bond). Cross-cutting over most layers/engines. Spec **II.7**. |
 
 > **Engines 1–18 answer "how do we do this right?"** Engine 11 (elevated) answers
 > "*why* do it, and *where* do we plant the next flag?". Engines 19–26 and the
 > Orchestrator answer "*which* experts, in *what* order, *what* should we learn
-> next, and how do we get better at learning itself?" — the strategic, decision,
-> and meta planes, not the tactical one.
+> next, and how do we get better at learning itself?". Engine 27 answers "*make
+> me see and understand it*" — the strategic, decision, meta, and comprehension
+> planes, not just the tactical one.
 
 ### Numbering & de-duplication note
 
 The v2.1 additions proposed as "19–23 + Meta-Learning" are indexed here as
-**21–26** to avoid colliding with the Orchestration meta-engines already defined
-(19 Learning Priority, 20 Interface Network). Several of the new engines are
+**21–26**, and the v2.2 Scientific Visualization Engine (proposed as "24") as
+**27**, to avoid colliding with earlier assignments (19 Learning Priority,
+20 Interface Network, 24 Industrial Memory). Several of the new engines are
 **refinements of existing ones, not new silos** — kept distinct only where they
 add a genuinely new behaviour. The intended relationships:
 
@@ -213,9 +218,11 @@ add a genuinely new behaviour. The intended relationships:
 | 24 Industrial Memory | The active-capture realization of Layer 14 (Knowledge Events / evolution chains). |
 | 25 Strategic Opportunity | Business-facing sibling of 11 (patent white-space) + 13 (innovation layer). |
 | 26 Meta-Learning | Apex: consumes 24's memory to improve the whole loop. Depends on all others. |
+| 27 Scientific Visualization | Presentation layer over Layer 4 (mechanisms), Engine 20 (interfaces), formula/experiment history and Engines 16/17 — it *renders* existing knowledge, it does not create any. |
 
-Do **not** build these as six independent services — build 22→19, 23←8, 24←Layer 14
-as extensions, and reserve 26 for last.
+Do **not** build these as independent services — build 22→19, 23←8, 24←Layer 14
+as extensions, reserve 26 for last, and treat 27 as a rendering layer that binds
+to whatever data already carries provenance.
 
 ## II.1 Confidence Engine
 
@@ -318,6 +325,69 @@ enter this market."*
 It is the business-facing sibling of Engine 11 (which maps IP white-space) and
 Engine 13 (the innovation layer that stores opportunities). Output is a ranked
 set of **hypotheses**, never a committed strategy.
+
+## II.7 Engine 27 — Scientific Visualization Engine
+
+**Status: 🟠→🔭 NEW ARCH → FUTURE.** The users are not always chemists —
+sometimes a salesperson or a customer needs to *understand why* something
+happens, not just receive an answer. Most software shows **data** (tables,
+charts, documents). This engine shows **mechanisms**. It turns any piece of
+knowledge into a visual explanation, so "add silane" becomes *seeing* how the
+silane bonds to the substrate, changes pore behaviour, and finally lowers the
+wall's water uptake.
+
+It is a **presentation/explanation layer**, not a knowledge producer: it renders
+what already exists in the knowledge base and the engines. Eight views:
+
+1. **Molecular View** — real 3-D structures, functional groups, active bonds,
+   reaction zones (e.g. Silane → hydrolysis → bond formation → stone surface).
+2. **Mechanism Animation** — the mechanism over *time* (e.g. APP → acid release →
+   polyol melts → melamine releases gas → char expands → thermal insulation).
+3. **Interface View** — what happens at an interface (Stone │ Water │ Silane │
+   Pore): where water enters, where silane binds, where capillarity is blocked.
+   *Direct visual front-end of Engine 20 (Interface Network).*
+4. **Process Timeline** — 0 s mixing → 2 min dispersion → 10 min film formation →
+   24 h curing → 6 months weathering.
+5. **Fire Simulation** — temperature ramp (20 → 150 → 250 °C APP activated → 350
+   char expansion → 600 protection) with the intumescent layer visibly swelling.
+6. **Knowledge Evolution** — Experiment → Knowledge Event → ΔK → New Principle →
+   Recommendation: *seeing how knowledge is born* (front-end of the Continuous
+   Learning Loop + Industrial Memory, Engine 24).
+7. **Formula Evolution** — V001 → +APP → V014 → −Melamine → V037 → +Glass Sand →
+   V081 → final: a *journey*, not a table (internal formulation history).
+8. **Interaction Network** — a clickable graph of materials and their effects
+   (APP → Binder / Melamine / Moisture / Fire; Melamine → Expansion / Smoke /
+   Density). Front-end of Engines 15 (Relationship Intelligence) + 20.
+
+### The multi-scale zoom (the strongest idea)
+
+A Google-Maps-style zoom through scale, and a matching semantic drill-down
+through the knowledge graph:
+
+```
+Scale zoom:      Building → Wall → Plaster → Particles → Crystal → Molecule → Bond
+Semantic drill:  Project → Product → Formulation → Material → Mechanism → Molecule → Bond
+                 (and the reverse: Molecule → Mechanism → Property → Formulation
+                  → Product → Project → Field performance)
+```
+
+The user "dives" through the levels — connecting abstract knowledge to intuitive
+understanding. This is one of the platform's strongest differentiators: it shows
+*mechanisms and cause→effect chains*, not just records.
+
+### Guardrails (non-negotiable)
+
+- **Never invent chemistry (Principle 7) applies to pixels too.** Every rendered
+  structure/animation must bind to sourced data — 3-D molecules from an
+  authoritative structure source keyed by CAS (Layer 3); mechanism animations
+  and fire/aging simulations only from sourced mechanism/performance records.
+- **Provenance & confidence are shown, not hidden (Principle 6).** A view carries
+  the confidence of the data behind it; anything illustrative-but-unvalidated is
+  visibly marked as a **hypothesis**, never drawn as established fact.
+- **Separation is visible (Principle 5).** The zoom crosses domains — Project /
+  Product / Formulation are *internal Fresco*; Material / Mechanism / Molecule
+  are *external IKL*. The engine must visually distinguish external vs. internal
+  vs. hypothesis and never merge them into one record.
 
 ---
 
@@ -501,6 +571,7 @@ capabilities form a lifecycle, each stage owned by parts of the architecture:
 | Experiment Planning | Learning Priority (19) + Autonomous Experiment Planner (23) |
 | Knowledge Creation | Continuous Learning Loop (III.1) + Industrial Memory (24) |
 | Business Opportunity | Strategic Opportunity (25) + Strategic Landscape (11) |
+| Comprehension / Explanation | Scientific Visualization (27) — renders mechanisms across every stage |
 | *(meta)* Process improvement | Meta-Learning (26) — learns the lifecycle itself |
 
 ## III.3 Long-term platform
@@ -543,7 +614,7 @@ confidence and marks generated content as hypothesis).
 - **Knowledge base:** ✅ substantially complete (Layers 1–13, Layer 14 partial;
   provenance, versioning, separation, confidence storage).
 - **Engines:** 🟢 only Engine 1 (Industrial Search) partially shipped
-  (semantic search + bulk import + reindex). Engines 2–26 not built.
+  (semantic search + bulk import + reindex). Engines 2–27 not built.
 - **Orchestration tier (II+):** 🟠 not built — the decision layer that conducts
   the engines (Orchestrator + meta-engines 19, 20, 22, 23, 24). This is the phase
   the project is now entering.
@@ -585,6 +656,9 @@ reasoning → discovery.**
 8. **Discovery & strategy** *(🟠/🔭)* — Strategic Landscape (11, II.4), Strategic
    Opportunity (25), Trade-off (21), Supply-Chain Shock (12), Combination
    Discovery (16), plus the validation workflow.
+   *Visualization (27) can start early and grow in parallel:* the Molecular View
+   is achievable as soon as raw materials carry CAS (Layer 3); the Interaction
+   Network and Formula/Knowledge-Evolution views follow their underlying engines.
 9. **Predictive & platform** *(🔭)* — Performance Prediction (7), Reliability &
    Aging (17), Multi-Objective Optimization (18), Digital Twin (14),
    Cross-Industry Analogy (13), the closed Continuous Learning Loop (III.1), and
@@ -596,7 +670,7 @@ reasoning → discovery.**
 | Bucket | Implemented | Partial | Fits arch | New arch | Future |
 |--------|-------------|---------|-----------|----------|--------|
 | Knowledge base (Layers 1–14 + cross-cutting) | Layers 1–3,5–12; provenance; versioning; separation; confidence storage | Layers 4, 13, 14 | hierarchy depth, mechanism sub-typing, review-status field | Digital assets (patterns, decision trees, knowledge events, evolution chains) | — |
-| Engines (1–26 + translator + confidence + ingestion) | — | Engine 1 | Engine 2; Confidence Engine; Engines 4/5/15 (storage/read side) | Engines 3,6,8,10,11,12,19,20,21,22,23,24,25; Semantic Translator; ingestion pipeline | Engines 7,9,13,14,16,17,18,26; Engine 11 strategic layers |
+| Engines (1–27 + translator + confidence + ingestion) | — | Engine 1 | Engine 2; Confidence Engine; Engines 4/5/15 (storage/read side) | Engines 3,6,8,10,11,12,19,20,21,22,23,24,25,27; Semantic Translator; ingestion pipeline | Engines 7,9,13,14,16,17,18,26; Engine 11 strategic layers; Engine 27 advanced views |
 | Orchestration tier (II+) | — | — | — | Orchestrator; Learning Priority (19); Interface Network (20); Knowledge Gap (22); Autonomous Experiment Planner (23); Industrial Memory (24) | Meta-Learning (26); closed-loop autonomy |
 | Vision | — | learning-loop substrate | — | — | Continuous Learning Loop; platform; capability lifecycle |
 
