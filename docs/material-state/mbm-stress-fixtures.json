@@ -23,7 +23,11 @@
     { "id": "steel:scc_cracked", "material": "steel", "state": "scc_cracked", "provenance": { "documentType": "illustrative" }, "confidence": 0.2 },
     { "id": "glass:solid", "material": "glass", "state": "solid", "phase": "glass", "provenance": { "documentType": "illustrative" }, "confidence": 0.2 },
     { "id": "glass:molten", "material": "glass", "state": "molten", "phase": "liquid", "provenance": { "documentType": "illustrative" }, "confidence": 0.2 },
-    { "id": "polymerX:stateA", "material": "polymerX", "state": "stateA", "provenance": { "documentType": "illustrative" }, "confidence": 0.2 }
+    { "id": "polymerX:stateA", "material": "polymerX", "state": "stateA", "provenance": { "documentType": "illustrative" }, "confidence": 0.2 },
+    { "id": "app:solid", "material": "app", "state": "solid", "phase": "solid", "provenance": { "documentType": "illustrative" }, "confidence": 0.2 },
+    { "id": "app:polyphosphoric_acid", "material": "app", "state": "polyphosphoric_acid", "provenance": { "documentType": "illustrative" }, "confidence": 0.2 },
+    { "id": "app:crosslinked", "material": "app", "state": "crosslinked", "provenance": { "documentType": "illustrative" }, "confidence": 0.2 },
+    { "id": "app:char", "material": "app", "state": "char", "phase": "solid", "provenance": { "documentType": "illustrative" }, "confidence": 0.2 }
   ],
   "transitions": [
     { "id": "thermal_1", "fromState": "epoxy:glassy", "toState": "epoxy:rubbery", "drivers": ["temperature"], "reversibility": "reversible", "status": "observed", "entropy": 0.1, "mechanism": "glass transition", "resultingProperties": ["modulus ↓"], "evidence": [{ "documentType": "illustrative" }], "confidence": 0.7 },
@@ -49,6 +53,12 @@
     { "id": "unknown_1", "fromState": "polymerX:stateA", "toState": null, "drivers": ["uv", "humidity"], "reversibility": "unknown", "status": "unknown", "entropy": 1.0, "knowledgeGap": { "cost": "low", "impact": "high", "priority": 1 }, "evidence": [], "confidence": 0.0 },
 
     { "id": "impossible_1", "fromState": "glass:solid", "toState": "glass:molten", "drivers": ["uv"], "reversibility": "irreversible", "status": "impossible", "entropy": 0.05, "impossibleReason": "UV photon energy cannot break the Si–O network or cause melting; no known mechanism", "evidence": [{ "documentType": "illustrative" }], "confidence": 0.7 },
-    { "id": "impossible_2", "fromState": "silane:monomer", "toState": "silane:hydrolyzed", "drivers": ["time"], "reversibility": "irreversible", "status": "impossible", "entropy": 0.05, "impossibleReason": "hydrolysis requires water; a dry atmosphere (time alone) provides no mechanism — contrast hydro_1 under humidity", "evidence": [{ "documentType": "illustrative" }], "confidence": 0.7 }
+    { "id": "impossible_2", "fromState": "silane:monomer", "toState": "silane:hydrolyzed", "drivers": ["time"], "reversibility": "irreversible", "status": "impossible", "entropy": 0.05, "impossibleReason": "hydrolysis requires water; a dry atmosphere (time alone) provides no mechanism — contrast hydro_1 under humidity", "evidence": [{ "documentType": "illustrative" }], "confidence": 0.7 },
+
+    { "id": "app_ppa1", "fromState": "app:solid", "toState": "app:polyphosphoric_acid", "drivers": ["temperature"], "reversibility": "irreversible", "status": "observed", "entropy": 0.15, "mechanism": "polyphosphoric acid formation", "evidence": [{ "documentType": "illustrative" }], "confidence": 0.55 },
+    { "id": "app_ppa2", "fromState": "app:polyphosphoric_acid", "toState": "app:char", "drivers": ["temperature"], "reversibility": "irreversible", "status": "mechanism_supported", "entropy": 0.2, "mechanism": "char formation", "resultingProperties": ["mass ↓", "char yield ↑"], "invariantExceptions": [{ "invariant": "conservation_of_mass", "justification": "volatiles released to gas phase" }], "evidence": [{ "documentType": "illustrative" }], "confidence": 0.5 },
+    { "id": "app_xl1", "fromState": "app:solid", "toState": "app:crosslinked", "drivers": ["temperature"], "reversibility": "irreversible", "status": "mechanism_supported", "entropy": 0.2, "mechanism": "crosslinking", "resultingProperties": ["crosslink density ↑"], "evidence": [{ "documentType": "illustrative" }], "confidence": 0.5 },
+    { "id": "app_xl2", "fromState": "app:crosslinked", "toState": "app:char", "drivers": ["temperature"], "reversibility": "irreversible", "status": "hypothesized", "entropy": 0.5, "mechanism": "char formation (hypothesized route)", "resultingProperties": ["mass ↓"], "invariantExceptions": [{ "invariant": "conservation_of_mass", "justification": "volatiles released to gas phase" }], "evidence": [], "confidence": 0.3 },
+    { "id": "app_direct", "fromState": "app:solid", "toState": "app:char", "drivers": ["temperature"], "reversibility": "irreversible", "status": "hypothesized", "entropy": 0.5, "mechanism": "direct charring (coarse)", "resultingProperties": ["mass ↓"], "invariantExceptions": [{ "invariant": "conservation_of_mass", "justification": "volatiles released to gas phase" }], "evidence": [], "confidence": 0.25 }
   ]
 }
