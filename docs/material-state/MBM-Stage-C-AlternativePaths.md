@@ -68,8 +68,10 @@ and "how much trust survives end-to-end" (compound).
 
 ## Stage C roadmap (agreed)
 
-C.1 Alternative Path Generator ✅ · C.2 Uncertainty Attribution (decompose a low
-MRI into coverage-gap / source-reliability / brittleness) · C.3 Information Gain
-Engine (expected uncertainty reduction per measurement) · C.4 Experiment Planner
-(IG ÷ cost×time → best next experiment) · C.5 Historical Learning (update
-source-reliability from past runs).
+C.1 Alternative Path Generator ✅ · C.2 Uncertainty Attribution ✅ (decompose a
+low MRI into modelGap / evidence / coverage / weakLink — see
+`MBM-Stage-C-UncertaintyAttribution.md`) · C.3 Information Gain Engine (expected
+uncertainty reduction per measurement) · C.4 Experiment Planner (IG ÷ cost×time →
+best next experiment) · C.5 Historical Learning (update source-reliability from
+past runs) · C.6 Reliability-Gated Decision Hand-off · C.7 Uncertainty Budget
+Burndown.
