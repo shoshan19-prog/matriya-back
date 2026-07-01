@@ -116,6 +116,51 @@ export function checkInvariants(doc) {
   return { results, allOk: results.every((r) => r.ok) };
 }
 
+/**
+ * Invariant Coverage — DEPTH of the check, not just pass/fail.
+ * A model where every invariant passes but 4 of 5 were exercised on a single
+ * transition is blind to its own gaps. For each invariant we count how many
+ * REAL transitions non-vacuously EXERCISED it (met its precondition — the check
+ * did substantive work), and derive a per-transition CoverageVector.
+ *
+ * Precondition per invariant (what makes a check non-vacuous):
+ *   conservation_of_mass — the transition asserts a mass change
+ *   entropy_monotonicity — spontaneous ordering (the check verifies energy)
+ *   causality            — an irreversible edge (participates in acyclicity)
+ *   equivalence          — endpoints identity-compared (non-null toState)
+ *   continuity           — continuity affirmatively established (mechanism/phase change)
+ *
+ * NOTE on the acceptance bar: coverage is reported as an absolute COUNT and as a
+ * % of real transitions. The meaningful gate is a COUNT floor (>= MIN_EXERCISED),
+ * NOT "80% of all transitions" — most transitions legitimately do not change mass
+ * or create order, so a uniform 80%-of-all bar is physically impossible for those
+ * invariants. See MBM-OntologyValidationSuite.md.
+ */
+export const INVARIANTS = ['conservation_of_mass', 'entropy_monotonicity', 'causality', 'equivalence', 'continuity'];
+
+function exercises(t, stateById, inv) {
+  const from = stateById[t.fromState], to = t.toState ? stateById[t.toState] : null;
+  switch (inv) {
+    case 'conservation_of_mass': return MASS_RE.test(props(t));
+    case 'entropy_monotonicity': return SPONTANEOUS.has(t.status) && t.reversibility === 'irreversible' && ORDERING_RE.test(props(t));
+    case 'causality': return t.reversibility === 'irreversible' && t.toState != null;
+    case 'equivalence': return t.toState != null;
+    case 'continuity': return (t.mechanism != null && String(t.mechanism).trim() !== '') || (from && to && from.phase && to.phase && from.phase !== to.phase);
+    default: return false;
+  }
+}
+
+export function computeCoverage(doc) {
+  const stateById = Object.fromEntries((doc.states || []).map((s) => [s.id, s]));
+  const real = (doc.transitions || []).filter(REAL);
+  const vectors = real.map((t) => ({ id: t.id, vector: Object.fromEntries(INVARIANTS.map((inv) => [inv, exercises(t, stateById, inv)])) }));
+  const rows = INVARIANTS.map((inv) => {
+    const exercised = vectors.filter((v) => v.vector[inv]).length;
+    return { invariant: inv, exercised, total: real.length, pct: real.length ? exercised / real.length : 0 };
+  });
+  return { rows, total: real.length, vectors };
+}
+
 // --- direct run --------------------------------------------------------------
 if (import.meta.url === `file://${process.argv[1]}`) {
   const { readFileSync } = await import('fs');
@@ -128,7 +173,21 @@ if (import.meta.url === `file://${process.argv[1]}`) {
   for (const r of results) {
     console.log(`  ${r.ok ? '✅' : '❌'} ${r.invariant}${r.ok ? '' : '\n      - ' + r.violations.join('\n      - ')}`);
   }
+
+  // Coverage report + gate (depth of testing).
+  const MIN_EXERCISED = 3; // diversity floor per invariant (NOT 80% of all — see doc)
+  const { rows, total } = computeCoverage(doc);
+  console.log(`\nInvariant Coverage (over ${total} real transitions; gate = >= ${MIN_EXERCISED} exercising transitions each)`);
+  console.log('  ─────────────────────────────────────────────');
+  let covOk = true;
+  for (const r of rows) {
+    const ok = r.exercised >= MIN_EXERCISED;
+    if (!ok) covOk = false;
+    console.log(`  ${ok ? '✅' : '⚠️ '} ${r.invariant.padEnd(22)} ${String(Math.round(r.pct * 100)).padStart(3)}%  (${r.exercised}/${total})`);
+  }
+
   console.log('');
-  if (!allOk) { console.error('MBM Invariant Suite FAILED'); process.exit(1); }
-  console.log('MBM Invariant Suite PASSED — no transition violates an invariant without a declared exception.');
+  if (!allOk) { console.error('MBM Invariant Suite FAILED (a transition violates an invariant)'); process.exit(1); }
+  if (!covOk) { console.error(`MBM Coverage FAILED (an invariant is exercised on < ${MIN_EXERCISED} transitions — under-tested)`); process.exit(1); }
+  console.log('MBM Invariant Suite PASSED — invariants respected AND each exercised on >= 3 transitions.');
 }

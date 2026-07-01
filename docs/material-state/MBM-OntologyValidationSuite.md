@@ -90,6 +90,42 @@ bite** by a negative test (tamper a fixture → the check fires):
 The model now rejects non-physical transition paths *before* any real data is
 ingested — the instrument is calibrated before the measurement.
 
+## Invariant Coverage — depth of the check, not just pass/fail
+
+Passing is not enough: a model where every invariant passes but 4 of 5 were
+exercised on a single transition is **blind to its own gaps**. `computeCoverage()`
+(run inside `npm run test:mbm-invariants`) derives, per transition, a
+**CoverageVector** — which invariants it *non-vacuously exercised* — and reports
+how many transitions stress each invariant:
+
+```
+Invariant Coverage (over 14 real transitions; gate = >= 3 exercising transitions each)
+  ✅ conservation_of_mass    29%  (4/14)
+  ✅ entropy_monotonicity    21%  (3/14)
+  ✅ causality               79%  (11/14)
+  ✅ equivalence            100%  (14/14)
+  ✅ continuity             100%  (14/14)
+```
+
+**Methodological finding — the gate is a count floor, not "80% of all".** The
+first measurement showed mass 14% (2 transitions) and entropy 7% (1) — genuinely
+under-tested. But a uniform *"≥80% of all transitions"* bar is **physically
+impossible** for these invariants: most transitions legitimately do not change
+mass or create order, so mass could never reach 80%. The meaningful acceptance
+criterion is a **diversity floor — each invariant must be exercised on ≥ 3
+distinct transitions** (`MIN_EXERCISED`), which the suite enforces (exit non-zero
+below it, verified to bite by a negative test).
+
+To reach the floor, two *physically real* transitions were enriched (not padded):
+steel oxidation (`electro_2`) gains mass and forms a **crystalline oxide**;
+concrete carbonation (`mech_3`) absorbs CO₂ mass and **crystallises** CaCO₃ — each
+with its honest conservation/entropy exception. That lifted mass to 4 and entropy
+to 3. This is the coverage metric doing its job: it forced genuinely new physics
+into the test set rather than more of the same.
+
+*(Note: this "Invariant Coverage" is distinct from survival-dimension D7 "State
+Space Coverage", which measures material×driver-category cells.)*
+
 ## Honest limits
 
 - The checks are **heuristic by design** (structural physical consistency, not
