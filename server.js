@@ -68,6 +68,7 @@ import {
 } from './lib/davidAskMatriyaAcceptance.js';
 import { repairUtf8MisdecodedAsLatin1 } from './lib/textEncoding.js';
 import { RAG_INSUFFICIENT_SUPPORT_MESSAGE_HE } from './lib/ragEvidenceFailSafe.js';
+import { registerMriRoutes } from './mriEndpoint.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -311,6 +312,9 @@ app.get("/health", async (req, res) => {
     });
   }
 });
+
+// Morning MRI — live system-state delta board (GET /mri, auth required)
+registerMriRoutes(app, { getRagService, getMetrics });
 
 // ---------- Lab integration: formula analysis & experiment sync ----------
 const OUTCOMES_SET = new Set(EXPERIMENT_OUTCOMES);
