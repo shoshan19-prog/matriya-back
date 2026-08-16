@@ -1,0 +1,32 @@
+{
+  "_README": "REAL, VERIFIED external claim, read in full from the primary source (open-access, CC BY). Replaces the frozen placeholder without changing the contract. Values and conditions are quoted from the paper. This is a commercial EPOXY intumescent coating (flat plate, industrial furnace) — NOT an APP:PER:MEL system — which is exactly why it must NOT be directly compared to INT-TFX without the comparability gate.",
+  "citation": {
+    "authors": "Oguz B., Olsson E.O.L., Robson J., Dam-Johansen K., Dreyer J.A.H.",
+    "title": "Evaluating the impact of testing conditions on intumescent coatings' fire performance: A comparison of laboratory-scale and industrial-scale experiments",
+    "journal": "Fire Safety Journal",
+    "volume": "153",
+    "article": "104367",
+    "year": 2025,
+    "doi": "10.1016/j.firesaf.2025.104367",
+    "license": "CC BY (open access)"
+  },
+  "source_class": "world_external",
+  "source_id": "Oguz2025-FSJ-104367:flat-plate-industrial",
+  "subject": "Commercial epoxy intumescent coating (flat plate)",
+  "metric": "Expansion Ratio",
+  "value": [13, 15],
+  "unit": "ratio (delta1/delta0)",
+  "context": "Reported flat-plate expansion ratio 13-15 under industrial furnace testing (verbatim: 'expansion ratios ranging from 13 to 15').",
+  "conditions": {
+    "metric_definition": "delta1/delta0 (expanded/initial thickness, needle depth-caliper)",
+    "fire_curve": "EN 1363 (industrial furnace)",
+    "section_factor": 200,
+    "geometry": "flat_plate",
+    "surface_location": "exposed_face",
+    "sample_size_edge": "industrial_5x200x300mm",
+    "arrangement_insulation": "industrial_furnace_standard",
+    "atmosphere": "furnace_low_O2_~5pct",
+    "dft": 5,
+    "formulation": "commercial_epoxy (bisphenol-A, TiO2, melamine, fibers)"
+  }
+}
