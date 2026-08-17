@@ -1,0 +1,10 @@
+{
+  "_README": "MANUAL, FROZEN placeholder for the Dual-Provenance POC. This value was NOT fetched from any live source, web/search API, database, or real publication. It is an illustrative placeholder used ONLY to prove that MATRIYA can hold a world_external claim isolated from Fresco internal knowledge and compare against it. Do NOT treat this as a real-world citation. When a real external source is later connected, it replaces this file without changing the contract.",
+  "source_class": "world_external",
+  "source_id": "FROZEN-EXT-REF-0001",
+  "subject": "APP:PER:MEL foam formulation (external analog)",
+  "metric": "Expansion Ratio",
+  "value": [8, 12],
+  "unit": "ratio (x)",
+  "context": "Manually entered, frozen reference range for the POC. Provenance is world_external and is kept fully isolated from Fresco internal documents."
+}
