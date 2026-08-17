@@ -611,7 +611,7 @@ class SupabaseVectorStore {
     const client = await this.pool.connect();
     try {
       const result = await client.query(`
-        SELECT COALESCE(metadata->>'source_class', 'fresco_internal') as source_class,
+        SELECT COALESCE(metadata->>'source_class', 'legacy_internal') as source_class,
                COUNT(*)::int as chunks_count,
                COUNT(DISTINCT metadata->>'filename')::int as files_count
         FROM ${this.collectionName}
@@ -661,6 +661,7 @@ class SupabaseVectorStore {
       const result = await client.query(
         `SELECT document, metadata FROM ${this.collectionName}
          WHERE metadata->>'filename' = $1
+           AND (metadata->>'source_class' IS NULL OR metadata->>'source_class' <> 'world_external')
          LIMIT 1`,
         [filename]
       );
@@ -683,6 +684,7 @@ class SupabaseVectorStore {
         `SELECT document, (metadata->>'chunk_index')::int AS chunk_index
          FROM ${this.collectionName}
          WHERE metadata->>'filename' = $1
+           AND (metadata->>'source_class' IS NULL OR metadata->>'source_class' <> 'world_external')
          ORDER BY (metadata->>'chunk_index')::int ASC NULLS LAST,
                   created_at ASC NULLS LAST,
                   id ASC`,

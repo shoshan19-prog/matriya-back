@@ -25,7 +25,7 @@ import {
   evaluateConclusionBeforeGeneration
 } from './lib/domainAndGenerationGate.js';
 import { detectStructuredDataInSnippets } from './lib/detectStructuredFormulationChunks.js';
-import { frescoScopeFilter } from './lib/worldKnowledge.js';
+import { frescoScopeFilter, deltaScopeForIngest, FRESCO_SOURCE_CLASS, WORLD_SOURCE_CLASS } from './lib/worldKnowledge.js';
 
 class RAGService {
   /**Main service for RAG operations*/
@@ -144,6 +144,12 @@ class RAGService {
     if (extraMetadata && typeof extraMetadata === 'object') {
       metadata = { ...metadata, ...extraMetadata };
     }
+    // Every new chunk carries an explicit provenance class. Untagged rows in
+    // the store are pre-provenance legacy and are provably Fresco-origin
+    // (world ingestion always tags; it did not exist before this layer).
+    if (!metadata.source_class) {
+      metadata = { ...metadata, source_class: FRESCO_SOURCE_CLASS };
+    }
     
     if (!text || !text.trim()) {
       return {
@@ -174,7 +180,11 @@ class RAGService {
     // Delta hardening: replace existing chunks for this file (idempotent re-ingest)
     try {
       if (filenameForStore) {
-        const delResult = await this.vectorStore.deleteDocuments(null, { filename: filenameForStore });
+        // Same-class replacement only: never delete across the provenance boundary.
+        const delResult = await this.vectorStore.deleteDocuments(null, {
+          filename: filenameForStore,
+          ...deltaScopeForIngest(metadata)
+        });
         if (delResult.deleted_count > 0) {
           logger.info(`Delta: removed ${delResult.deleted_count} existing chunks for file ${filenameForStore}`);
         }
@@ -745,8 +755,12 @@ ${answer}
   }
 
   async deleteDocumentsByFilename(filename) {
-    /**Delete all chunks for a given filename*/
-    const result = await this.vectorStore.deleteDocuments(null, { filename });
+    /**Delete all chunks for a given filename — Fresco surface only: a world
+     * document sharing the filename is untouched (provenance boundary). */
+    const result = await this.vectorStore.deleteDocuments(null, {
+      filename,
+      exclude_source_class: WORLD_SOURCE_CLASS
+    });
     return result.deleted_count || 0;
   }
 

@@ -62,4 +62,74 @@ assert.equal(prov.source_id, 'Oguz2025-FSJ-104367');
 assert.equal(prov.citation.title.startsWith('Evaluating'), true);
 assert.equal(prov.filename, 'paper.pdf');
 
-console.log('check-world-knowledge: OK (7 isolation-law checks passed)');
+// ---------------------------------------------------------------------------
+// SQL-boundary proofs: run the REAL vector-store methods against a fake pool
+// and assert the SQL they emit enforces the provenance boundary.
+// ---------------------------------------------------------------------------
+import SupabaseVectorStore from '../vectorStoreSupabase.js';
+import { deltaScopeForIngest } from '../lib/worldKnowledge.js';
+
+const captured = [];
+function makeStore() {
+  // Bypass the constructor (no DB, no embedding model) — test methods as-is.
+  const store = Object.create(SupabaseVectorStore.prototype);
+  store.collectionName = 'documents';
+  store.embeddingDim = 4;
+  store.embeddingModel = async () => ({ data: new Float32Array([0.1, 0.2, 0.3, 0.4]) });
+  store._localModelReady = Promise.resolve();
+  store.pool = {
+    connect: async () => ({
+      query: async (sql, params) => {
+        captured.push({ sql: String(sql), params: params || [] });
+        if (String(sql).includes('COUNT(')) return { rows: [{ count: '1' }], rowCount: 1 };
+        return { rows: [], rowCount: 0 };
+      },
+      release: () => {},
+    }),
+  };
+  return store;
+}
+const store = makeStore();
+const EXCL = "metadata->>'source_class' IS NULL OR metadata->>'source_class' <> ";
+const last = () => captured[captured.length - 1];
+
+// B1: default Fresco retrieval excludes world chunks.
+await store.search('q', 5, frescoScopeFilter(null));
+assert.ok(last().sql.includes(EXCL), 'fresco search SQL must exclude world');
+assert.ok(last().params.includes(WORLD_SOURCE_CLASS), 'exclusion param must be world_external');
+
+// B1: filename-scoped Fresco search still excludes world (same-name collision safe).
+await store.search('q', 5, frescoScopeFilter({ filename: 'paper.pdf' }));
+assert.ok(last().sql.includes(EXCL), 'filename-scoped fresco search must exclude world');
+
+// B1: ask-matriya text loaders are fresco-scoped.
+await store.getFullTextForFile('paper.pdf');
+assert.ok(last().sql.includes(EXCL.trim().slice(0, 40)), 'getFullTextForFile must exclude world');
+await store.getFirstChunkForFile('paper.pdf');
+assert.ok(last().sql.includes("<> 'world_external'"), 'getFirstChunkForFile must exclude world');
+
+// B2: world search selects ONLY world_external (never legacy/fresco rows).
+await store.search('q', 5, worldScopeFilter(null));
+assert.ok(last().sql.includes("metadata->>'source_class' = $"), 'world search must require source_class equality');
+assert.ok(!last().sql.includes(EXCL), 'world search must not carry the exclusion clause');
+assert.ok(last().params.includes(WORLD_SOURCE_CLASS));
+
+// B4/B5: file enumeration (files lists + OpenAI sync catalog) is fresco-scoped.
+await store.getAllFilenames();
+assert.ok(last().sql.includes("<> 'world_external'"), 'getAllFilenames must exclude world');
+await store.getFilesWithMetadata();
+assert.ok(last().sql.includes("<> 'world_external'"), 'getFilesWithMetadata must exclude world');
+
+// B5: deletion respects the boundary in both directions.
+await store.deleteDocuments(null, { filename: 'x.pdf', ...deltaScopeForIngest({ source_class: WORLD_SOURCE_CLASS }) });
+assert.ok(last().sql.includes("metadata->>'source_class' = $"), 'world delta-delete must target world rows only');
+await store.deleteDocuments(null, { filename: 'x.pdf', ...deltaScopeForIngest(null) });
+assert.ok(last().sql.includes(EXCL), 'fresco delta-delete must exclude world rows');
+assert.deepEqual(deltaScopeForIngest({ source_class: WORLD_SOURCE_CLASS }), { source_class: WORLD_SOURCE_CLASS });
+assert.deepEqual(deltaScopeForIngest({ source_class: FRESCO_SOURCE_CLASS }), { exclude_source_class: WORLD_SOURCE_CLASS });
+
+// B3: untagged rows are reported as explicit legacy_internal in status.
+await store.countBySourceClass();
+assert.ok(last().sql.includes("COALESCE(metadata->>'source_class', 'legacy_internal')"), 'status must classify untagged rows as legacy_internal');
+
+console.log('check-world-knowledge: OK (isolation-law + SQL-boundary proofs passed)');
