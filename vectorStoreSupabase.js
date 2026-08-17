@@ -475,6 +475,12 @@ class SupabaseVectorStore {
             conditions.push(`metadata->>'filename' = ANY($${paramIndex}::text[])`);
             params.push(value);
             paramIndex++;
+          } else if (key === 'exclude_source_class' && typeof value === 'string' && value) {
+            // Provenance isolation: rows without source_class (legacy Fresco chunks) pass;
+            // rows tagged with the excluded class never do.
+            conditions.push(`(metadata->>'source_class' IS NULL OR metadata->>'source_class' <> $${paramIndex})`);
+            params.push(value);
+            paramIndex++;
           } else if (key === 'filename' && typeof value === 'string' && value) {
             // Exact match, path suffix (LIKE '%value'), or match by basename so "Report.pdf" matches "folder/Report.pdf"
             const escaped = value.replace(/\\/g, '\\\\').replace(/%/g, '\\%').replace(/_/g, '\\_');
@@ -588,11 +594,33 @@ class SupabaseVectorStore {
         SELECT DISTINCT metadata->>'filename' as filename
         FROM ${this.collectionName}
         WHERE metadata->>'filename' IS NOT NULL
+          AND (metadata->>'source_class' IS NULL OR metadata->>'source_class' <> 'world_external')
         ORDER BY filename
       `);
       return result.rows.map(row => row.filename).filter(f => f);
     } catch (e) {
       logger.error(`Error getting filenames: ${e.message}`);
+      return [];
+    } finally {
+      client.release();
+    }
+  }
+
+  async countBySourceClass() {
+    /**Chunk + file counts per provenance class (fresco_internal = legacy NULL rows).*/
+    const client = await this.pool.connect();
+    try {
+      const result = await client.query(`
+        SELECT COALESCE(metadata->>'source_class', 'legacy_internal') as source_class,
+               COUNT(*)::int as chunks_count,
+               COUNT(DISTINCT metadata->>'filename')::int as files_count
+        FROM ${this.collectionName}
+        GROUP BY 1
+        ORDER BY 1
+      `);
+      return result.rows;
+    } catch (e) {
+      logger.error(`Error counting by source_class: ${e.message}`);
       return [];
     } finally {
       client.release();
@@ -609,6 +637,7 @@ class SupabaseVectorStore {
                MIN(created_at) as uploaded_at
         FROM ${this.collectionName}
         WHERE metadata->>'filename' IS NOT NULL
+          AND (metadata->>'source_class' IS NULL OR metadata->>'source_class' <> 'world_external')
         GROUP BY metadata->>'filename'
         ORDER BY MIN(created_at) DESC, filename
       `);
@@ -632,6 +661,7 @@ class SupabaseVectorStore {
       const result = await client.query(
         `SELECT document, metadata FROM ${this.collectionName}
          WHERE metadata->>'filename' = $1
+           AND (metadata->>'source_class' IS NULL OR metadata->>'source_class' <> 'world_external')
          LIMIT 1`,
         [filename]
       );
@@ -654,6 +684,7 @@ class SupabaseVectorStore {
         `SELECT document, (metadata->>'chunk_index')::int AS chunk_index
          FROM ${this.collectionName}
          WHERE metadata->>'filename' = $1
+           AND (metadata->>'source_class' IS NULL OR metadata->>'source_class' <> 'world_external')
          ORDER BY (metadata->>'chunk_index')::int ASC NULLS LAST,
                   created_at ASC NULLS LAST,
                   id ASC`,
@@ -723,6 +754,12 @@ class SupabaseVectorStore {
         for (const [key, value] of Object.entries(filterMetadata)) {
           if (key === 'filenames' && Array.isArray(value) && value.length > 0) {
             conditions.push(`metadata->>'filename' = ANY($${paramIndex}::text[])`);
+            params.push(value);
+            paramIndex++;
+          } else if (key === 'exclude_source_class' && typeof value === 'string' && value) {
+            // Provenance isolation: rows without source_class (legacy Fresco chunks) pass;
+            // rows tagged with the excluded class never do.
+            conditions.push(`(metadata->>'source_class' IS NULL OR metadata->>'source_class' <> $${paramIndex})`);
             params.push(value);
             paramIndex++;
           } else if (key === 'filename' && typeof value === 'string' && value) {

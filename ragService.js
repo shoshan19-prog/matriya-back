@@ -25,6 +25,7 @@ import {
   evaluateConclusionBeforeGeneration
 } from './lib/domainAndGenerationGate.js';
 import { detectStructuredDataInSnippets } from './lib/detectStructuredFormulationChunks.js';
+import { frescoScopeFilter, deltaScopeForIngest, FRESCO_SOURCE_CLASS, WORLD_SOURCE_CLASS } from './lib/worldKnowledge.js';
 
 class RAGService {
   /**Main service for RAG operations*/
@@ -101,14 +102,16 @@ class RAGService {
     this.llmService = new LLMService();
   }
   
-  async ingestFile(filePath, originalFilename = null) {
+  async ingestFile(filePath, originalFilename = null, extraMetadata = null) {
     /**
      * Process a file and add it to the vector database
-     * 
+     *
      * Args:
      *   file_path: Path to the file to ingest
      *   original_filename: Optional original filename to preserve
-     * 
+     *   extra_metadata: Optional metadata merged into every chunk (e.g. the
+     *     world-knowledge provenance block: source_class/source_id/citation)
+     *
      * Returns:
      *   Dictionary with ingestion results
      */
@@ -136,6 +139,16 @@ class RAGService {
         ...metadata,
         filename: originalFilename
       };
+    }
+
+    if (extraMetadata && typeof extraMetadata === 'object') {
+      metadata = { ...metadata, ...extraMetadata };
+    }
+    // Every new chunk carries an explicit provenance class. Untagged rows in
+    // the store are pre-provenance legacy and are provably Fresco-origin
+    // (world ingestion always tags; it did not exist before this layer).
+    if (!metadata.source_class) {
+      metadata = { ...metadata, source_class: FRESCO_SOURCE_CLASS };
     }
     
     if (!text || !text.trim()) {
@@ -167,7 +180,11 @@ class RAGService {
     // Delta hardening: replace existing chunks for this file (idempotent re-ingest)
     try {
       if (filenameForStore) {
-        const delResult = await this.vectorStore.deleteDocuments(null, { filename: filenameForStore });
+        // Same-class replacement only: never delete across the provenance boundary.
+        const delResult = await this.vectorStore.deleteDocuments(null, {
+          filename: filenameForStore,
+          ...deltaScopeForIngest(metadata)
+        });
         if (delResult.deleted_count > 0) {
           logger.info(`Delta: removed ${delResult.deleted_count} existing chunks for file ${filenameForStore}`);
         }
@@ -269,6 +286,9 @@ class RAGService {
      * Returns:
      *   List of search results, sorted by relevance
      */
+    // Provenance isolation: Fresco retrieval never sees world_external chunks
+    // unless the caller explicitly scopes by source_class.
+    filterMetadata = frescoScopeFilter(filterMetadata);
     await hydrateMatriyaOpenAiVectorStoreId();
     if (this._openAiFileSearchReady()) {
       try {
@@ -392,6 +412,9 @@ class RAGService {
      * Returns:
      *   Dictionary with search results and generated answer
      */
+    // Provenance isolation: answers are grounded in Fresco chunks only unless
+    // the caller explicitly scopes by source_class.
+    filterMetadata = frescoScopeFilter(filterMetadata);
     await hydrateMatriyaOpenAiVectorStoreId();
 
     let searchResults = Array.isArray(prefetchedSearchResults) ? prefetchedSearchResults : null;
@@ -732,8 +755,12 @@ ${answer}
   }
 
   async deleteDocumentsByFilename(filename) {
-    /**Delete all chunks for a given filename*/
-    const result = await this.vectorStore.deleteDocuments(null, { filename });
+    /**Delete all chunks for a given filename — Fresco surface only: a world
+     * document sharing the filename is untouched (provenance boundary). */
+    const result = await this.vectorStore.deleteDocuments(null, {
+      filename,
+      exclude_source_class: WORLD_SOURCE_CLASS
+    });
     return result.deleted_count || 0;
   }
 
