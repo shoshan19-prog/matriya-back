@@ -7,11 +7,41 @@
       "title": "World Knowledge + comparison gate landed in main",
       "no_production_change": false,
       "merged_to_main": [
-        { "pr": 11, "sha": "4df888e", "title": "Live Fresco↔World comparison — POST /world/compare (contracts #7/#8 wired, gate before verdict)" },
-        { "pr": 10, "sha": "7aebd19", "title": "World Knowledge provenance layer — world_external isolated from every Fresco surface" },
-        { "pr": 9, "sha": "f5c6277", "title": "Canonical PRODUCT-INVENTORY.md + binding REVEAL-BEFORE-ADD rule" }
+        {
+          "pr": 17,
+          "sha": "fcf574f",
+          "title": "(front) חשיפת /progress על דומיין ה-workspace — proxy ל-matriya-back"
+        },
+        {
+          "pr": 12,
+          "sha": "5b9d328",
+          "title": "מסך Production Progress — GET /progress + רשומת סשנים מחייבת + self-tests"
+        },
+        {
+          "pr": 11,
+          "sha": "4df888e",
+          "title": "Live Fresco↔World comparison — POST /world/compare (contracts #7/#8 wired, gate before verdict)"
+        },
+        {
+          "pr": 10,
+          "sha": "7aebd19",
+          "title": "World Knowledge provenance layer — world_external isolated from every Fresco surface"
+        },
+        {
+          "pr": 9,
+          "sha": "f5c6277",
+          "title": "Canonical PRODUCT-INVENTORY.md + binding REVEAL-BEFORE-ADD rule"
+        }
       ],
       "capability_delta": [
+        {
+          "name": "Production Progress monitor (המסך הזה)",
+          "before": "MISSING — לא היה מסך התקדמות production; דוחות סטטיים בלבד",
+          "now": "LIVE — מסך קנוני אחד עם דלתא-בין-סשנים, self-tests בזמן-ריצה וסולם CODED→LIVE_VERIFIED",
+          "stage": "MERGED",
+          "evidence": "GET /progress (back #12) + proxy מדומיין ה-workspace (front #17); check-production-progress ב-CI",
+          "impact": "בכל כניסה רואים תוך שניות מה השתפר, האם זה באמת חי, ומה דורש תשומת לב"
+        },
         {
           "name": "World Knowledge (מחלקת ראיות עולמית)",
           "before": "MISSING — לא היה ייצוג לידע חיצוני; הכל נכנס לסל אחד",
@@ -44,7 +74,7 @@
         "סגירת PR #2 (Repository Health — סומן SUPERSEDED ב-triage)",
         "עתיד PRs #7/#8 — נשארים פתוחים כרשומת הוכחה"
       ],
-      "attention_now": "ה-corpus העולמי ריק (world_external = 0). הפעולה האחת הבאה: לקלוט את המסמך העולמי המאומת הראשון (Oguz 2025, FSJ 153:104367) דרך /world/ingest ב-production."
+      "attention_now": "פתח את https://matriya-workspace.vercel.app/progress — אם המסך עולה, ה-monitor סגור. ההכרעה הבאה: קליטת מסמך עולמי ראשון (/world/ingest), ואז Critical Gap Ranking."
     },
     {
       "id": "2026-08-16-baseline",
