@@ -51,6 +51,7 @@ _Last verified: 2026-08-17 (full REVEAL-BEFORE-ADD audit). Counts measured from 
 | **Recovery extras** | `/admin/recovery/rules`, `/admin/risk-oracle`, POST `/admin/recovery/rollback`, violations list/create/bulk-resolve |
 | **Insights / experiment sync** | `GET /insights/experiment/:experimentId`, `POST /sync/experiments` |
 | **World Knowledge (live provenance layer)** | `POST /world/ingest` (requires source_id + citation; never enters the OpenAI file_search store), `GET /world/search` (explicit world-only retrieval with provenance), `GET /world/status` (counts by source_class). Isolation: default Fresco retrieval + file enumeration exclude `source_class='world_external'` (`lib/worldKnowledge.js`, `scripts/check-world-knowledge.js`) |
+| **Live Fresco↔World comparison** | `POST /world/compare` — scientific comparison of one Fresco claim vs one World claim via the proven contracts (`lib/dualProvenanceContract.js` + `lib/comparabilityContract.js`, ported from PRs #7/#8): comparability gate BEFORE any value verdict → `AGREE / CONFLICT / FRESCO_ONLY / WORLD_ONLY / NOT_COMPARABLE`, full per-side provenance, isolation refusals are 400s (`scripts/check-live-comparison.js`) |
 
 ## 4 · DEAD (do not build on, remove-candidates)
 
@@ -87,7 +88,9 @@ _Last verified: 2026-08-17 (full REVEAL-BEFORE-ADD audit). Counts measured from 
 - Contradictions ×2: matriya `POST /agent/contradiction` ↔ maneger `GET /analysis/contradictions`.
 - Admin `global` counters ⊂ `integrity` dashboard.
 
-## 8 · Proven-but-offline capabilities (contracts to reuse)
+## 8 · Provenance contracts (now LIVE)
 
-- **Dual-Provenance contract** (`poc/dualProvenance.js`): `source_class ∈ {fresco_internal, world_external}` + `source_id` mandatory; same-provenance pooling refused; 8/8 tests.
-- **Scientific-comparability gate** (`poc/comparability.js`): 10 critical conditions; missing/mismatched ⇒ `NOT_COMPARABLE` (never a false CONFLICT); 9/9 tests. Open PRs: #7, #8.
+- **Dual-Provenance contract** — LIVE at `lib/dualProvenanceContract.js` (ported verbatim from PR #7): `source_class ∈ {fresco_internal, world_external}` + `source_id` mandatory; same-provenance pooling refused.
+- **Scientific-comparability gate** — LIVE at `lib/comparabilityContract.js` (ported verbatim from PR #8): 10 critical conditions; missing/mismatched ⇒ `NOT_COMPARABLE` (never a false CONFLICT). Wired into `POST /world/compare`.
+- PRs #7/#8 remain open as the original proof-record of these contracts.
+- Proven on real data (`scripts/check-live-comparison.js`): Fresco EXP-LEG-044 (67 min, custom ramp, conditions unrecorded) vs Oğuz et al. FSJ 153 (2025) 104367 (84 min, EN 1363 flat plate) → `NOT_COMPARABLE` with naive `CONFLICT` suppressed; matched-condition fixtures → `AGREE`/`CONFLICT`.
