@@ -67,14 +67,16 @@
           "impact": "בונים 2, חושפים 4, ממחזרים 3 — במקום לבנות 9"
         }
       ],
-      "regressions": [],
+      "regressions": [
+        "DEPLOY PIPELINE GAP: אין אינטגרציית GitHub↔Vercel על הריפואים (אפס checks/statuses על ה-PRs). מיזוגים ל-main לא מגיעים ל-production — הפריסות עד כה היו ידניות. כל היכולות בסשן זה הן MERGED בלבד, לא DEPLOYED. עדות: 404 NOT_FOUND על /progress בשני הדומיינים; PR #17 ללא אף check-run."
+      ],
       "open_decisions": [
         "אכלוס מסמך עולמי ראשון ב-production (POST /world/ingest) — בלעדיו ה-corpus העולמי ריק",
         "אישור בניית Critical Gap Ranking (רק אחרי corpus עולמי)",
         "סגירת PR #2 (Repository Health — סומן SUPERSEDED ב-triage)",
         "עתיד PRs #7/#8 — נשארים פתוחים כרשומת הוכחה"
       ],
-      "attention_now": "פתח את https://matriya-workspace.vercel.app/progress — אם המסך עולה, ה-monitor סגור. ההכרעה הבאה: קליטת מסמך עולמי ראשון (/world/ingest), ואז Critical Gap Ranking."
+      "attention_now": "חיבור Vercel↔GitHub (חד-פעמי): בלוח Vercel → פרויקט matriya-workspace → Settings → Git → חבר ל-shoshan19-prog/matriya-front-, ואותו דבר לפרויקט ה-backend מול matriya-back. ואז Redeploy מ-main. חלופה מהירה: vercel --prod ידני בשני הריפואים. אחרי זה /progress יעלה והמסך יתחזק את עצמו."
     },
     {
       "id": "2026-08-16-baseline",
