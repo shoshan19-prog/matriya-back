@@ -68,6 +68,7 @@ import {
 } from './lib/davidAskMatriyaAcceptance.js';
 import { repairUtf8MisdecodedAsLatin1 } from './lib/textEncoding.js';
 import { buildWorldMetadata, worldScopeFilter, provenanceOf, WORLD_SOURCE_CLASS } from './lib/worldKnowledge.js';
+import { scientificCompare, RELATION as COMPARE_RELATION, CRITICAL_CONDITIONS } from './lib/comparabilityContract.js';
 import { RAG_INSUFFICIENT_SUPPORT_MESSAGE_HE } from './lib/ragEvidenceFailSafe.js';
 import { registerMriRoutes } from './mriEndpoint.js';
 
@@ -1968,6 +1969,40 @@ app.get("/world/search", async (req, res) => {
   } catch (e) {
     logger.error(`World search failed: ${e.message}`);
     return res.status(500).json({ error: e.message });
+  }
+});
+
+app.post("/world/compare", async (req, res) => {
+  /**
+   * Live Fresco<->World scientific comparison. Wires the proven contracts
+   * (Dual-Provenance isolation + comparability gate, PRs #7/#8) into the
+   * runtime: the gate runs BEFORE any value verdict, so two claims whose
+   * measurement conditions are missing/mismatched return NOT_COMPARABLE —
+   * never a false CONFLICT. Body: { fresco_claim, world_claim } (either may
+   * be null for a gap). Response always carries full per-side provenance.
+   */
+  const frescoClaim = req.body?.fresco_claim ?? null;
+  const worldClaim = req.body?.world_claim ?? null;
+  try {
+    const result = scientificCompare(frescoClaim, worldClaim);
+    return res.json({
+      relation: result.relation,
+      subject: result.subject,
+      metric: result.metric,
+      fresco: result.fresco,
+      world: result.world,
+      provenance: result.provenance,
+      comparability: result.comparability,
+      ...(result.value_relation_suppressed
+        ? { value_relation_suppressed: result.value_relation_suppressed }
+        : {}),
+      critical_conditions: CRITICAL_CONDITIONS.map((c) => c.key),
+      relations: Object.values(COMPARE_RELATION),
+    });
+  } catch (e) {
+    // Contract violations (missing provenance, same-class pooling, wrong side)
+    // are client errors — the isolation law refused the comparison.
+    return res.status(400).json({ error: e.message });
   }
 });
 
