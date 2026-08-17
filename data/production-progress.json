@@ -68,7 +68,8 @@
         }
       ],
       "regressions": [
-        "DEPLOY PIPELINE GAP: אין אינטגרציית GitHub↔Vercel על הריפואים (אפס checks/statuses על ה-PRs). מיזוגים ל-main לא מגיעים ל-production — הפריסות עד כה היו ידניות. כל היכולות בסשן זה הן MERGED בלבד, לא DEPLOYED. עדות: 404 NOT_FOUND על /progress בשני הדומיינים; PR #17 ללא אף check-run."
+        "REALITY CORRECTED: matriya-workspace.vercel.app נפרס מ-shoshan19-prog/Matriya-System-Project#main (production אחרון: 196befb, 3 באוגוסט) — לא מ-matriya-front-. כל עבודת /progress ב-matriya-front-/matriya-back מעולם לא יכלה להגיע לדומיין הזה. עבודת ה-front הופסקה.",
+        "SESSION SCOPE BLOCKER: ל-Matriya-System-Project אין גישה מהסשן (repo לא ברשימת ההרשאות; clone+API נדחו). מימוש מסך ה-Progress במוצר החי חסום עד הוספת ה-repo להרשאות הסשן."
       ],
       "open_decisions": [
         "אכלוס מסמך עולמי ראשון ב-production (POST /world/ingest) — בלעדיו ה-corpus העולמי ריק",
@@ -76,7 +77,7 @@
         "סגירת PR #2 (Repository Health — סומן SUPERSEDED ב-triage)",
         "עתיד PRs #7/#8 — נשארים פתוחים כרשומת הוכחה"
       ],
-      "attention_now": "חיבור Vercel↔GitHub (חד-פעמי): בלוח Vercel → פרויקט matriya-workspace → Settings → Git → חבר ל-shoshan19-prog/matriya-front-, ואותו דבר לפרויקט ה-backend מול matriya-back. ואז Redeploy מ-main. חלופה מהירה: vercel --prod ידני בשני הריפואים. אחרי זה /progress יעלה והמסך יתחזק את עצמו."
+      "attention_now": "הוסף את shoshan19-prog/Matriya-System-Project להרשאות ה-repo של סשן/סביבת Claude (זה ה-production האמיתי מאחורי matriya-workspace). מיד אחרי זה: REVEAL-BEFORE-ADD על ה-repo ומימוש /progress בתוך המוצר החי, בפריסה דרך ה-pipeline הקיים."
     },
     {
       "id": "2026-08-16-baseline",
