@@ -67,6 +67,7 @@ import {
   davidInsufficientEvidencePayload
 } from './lib/davidAskMatriyaAcceptance.js';
 import { repairUtf8MisdecodedAsLatin1 } from './lib/textEncoding.js';
+import { buildWorldMetadata, worldScopeFilter, provenanceOf, WORLD_SOURCE_CLASS } from './lib/worldKnowledge.js';
 import { RAG_INSUFFICIENT_SUPPORT_MESSAGE_HE } from './lib/ragEvidenceFailSafe.js';
 import { registerMriRoutes } from './mriEndpoint.js';
 
@@ -1899,6 +1900,87 @@ app.get("/files", async (req, res) => {
 /**
  * Get list of files with metadata (file type derived from name, chunks_count, uploaded_at)
  */
+// ============ World Knowledge (world_external provenance) ============
+// Live second evidence class. Isolation law: world chunks are tagged
+// source_class='world_external' + source_id + citation at ingest; every
+// Fresco surface (search/ask/files/cloud-sync) excludes them by default;
+// world retrieval is explicit-only and always returns provenance.
+
+app.post("/world/ingest", upload.single('file'), async (req, res) => {
+  if (!req.file) return res.status(400).json({ error: "No file provided" });
+
+  let originalFilename = Buffer.isBuffer(req.file.originalname)
+    ? req.file.originalname.toString('utf-8')
+    : String(req.file.originalname || 'file');
+  originalFilename = repairUtf8MisdecodedAsLatin1(originalFilename);
+
+  const fileExt = originalFilename.substring(originalFilename.lastIndexOf('.')).toLowerCase();
+  if (!settings.ALLOWED_EXTENSIONS.includes(fileExt)) {
+    return res.status(400).json({ error: `File type ${fileExt} not supported` });
+  }
+
+  let worldMetadata;
+  try {
+    worldMetadata = buildWorldMetadata(req.body || {});
+  } catch (e) {
+    try { if (existsSync(req.file.path)) unlinkSync(req.file.path); } catch (_) {}
+    return res.status(400).json({ error: e.message });
+  }
+
+  try {
+    const rag = getRagService();
+    const result = await rag.ingestFile(req.file.path, originalFilename, worldMetadata);
+    if (!result.success) return res.status(500).json({ error: result.error });
+    // Deliberately NO scheduleMatriyaOpenAiSyncAfterIngest: world documents
+    // must never enter the OpenAI file_search store that serves ask-matriya.
+    return res.json({
+      success: true,
+      filename: result.filename,
+      chunks_count: result.chunks_count,
+      provenance: provenanceOf(result.metadata)
+    });
+  } catch (e) {
+    logger.error(`World ingest failed: ${e.message}`);
+    return res.status(500).json({ error: e.message });
+  } finally {
+    try { if (existsSync(req.file.path)) unlinkSync(req.file.path); } catch (_) {}
+  }
+});
+
+app.get("/world/search", async (req, res) => {
+  const query = String(req.query.query || req.query.q || '').trim();
+  if (!query) return res.status(400).json({ error: "query is required" });
+  const nResults = Math.min(parseInt(req.query.n_results, 10) || 5, 20);
+  try {
+    const rag = getRagService();
+    // Explicit world-only scope; direct vector search (no LLM, no file_search).
+    const rows = await rag.vectorStore.search(query, nResults, worldScopeFilter(null));
+    return res.json({
+      query,
+      source_class: WORLD_SOURCE_CLASS,
+      results: (rows || []).map((r) => ({
+        id: r.id,
+        text: r.document,
+        similarity: r.distance,
+        provenance: provenanceOf(r.metadata || {})
+      }))
+    });
+  } catch (e) {
+    logger.error(`World search failed: ${e.message}`);
+    return res.status(500).json({ error: e.message });
+  }
+});
+
+app.get("/world/status", async (req, res) => {
+  try {
+    const rag = getRagService();
+    const counts = await rag.vectorStore.countBySourceClass();
+    return res.json({ counts });
+  } catch (e) {
+    return res.status(500).json({ error: e.message });
+  }
+});
+
 app.get("/files/detail", async (req, res) => {
   try {
     const rag = getRagService();

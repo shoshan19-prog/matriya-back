@@ -50,6 +50,7 @@ _Last verified: 2026-08-17 (full REVEAL-BEFORE-ADD audit). Counts measured from 
 | **Justification templates** | GET/POST `/admin/justification-templates`, PATCH/DELETE `:id` |
 | **Recovery extras** | `/admin/recovery/rules`, `/admin/risk-oracle`, POST `/admin/recovery/rollback`, violations list/create/bulk-resolve |
 | **Insights / experiment sync** | `GET /insights/experiment/:experimentId`, `POST /sync/experiments` |
+| **World Knowledge (live provenance layer)** | `POST /world/ingest` (requires source_id + citation; never enters the OpenAI file_search store), `GET /world/search` (explicit world-only retrieval with provenance), `GET /world/status` (counts by source_class). Isolation: default Fresco retrieval + file enumeration exclude `source_class='world_external'` (`lib/worldKnowledge.js`, `scripts/check-world-knowledge.js`) |
 
 ## 4 · DEAD (do not build on, remove-candidates)
 
@@ -59,8 +60,8 @@ _Last verified: 2026-08-17 (full REVEAL-BEFORE-ADD audit). Counts measured from 
 
 ## 5 · TRULY MISSING (the only justified new development)
 
-1. **World Knowledge (live)** — no live external source/endpoint anywhere. The offline PoC (`poc/dualProvenance.js`, `poc/comparability.js`) proved the **Dual-Provenance** and **NOT_COMPARABLE** gates; any World implementation MUST reuse those contracts (source_class isolation; comparability gate before any verdict).
-2. **Ranked Critical-Gap object** — no system computes or stores an impact-ranked knowledge gap per project.
+1. ~~World Knowledge (live)~~ — **BUILT** (world-knowledge PR): live `world_external` provenance layer with ingest/search/status endpoints and default-Fresco isolation. Reuses the proven Dual-Provenance contract; the comparability gate (`poc/comparability.js`, PR #8) is the next integration step before any Fresco↔World verdict.
+2. **Ranked Critical-Gap object** — no system computes or stores an impact-ranked knowledge gap per project. (Must consume BOTH provenances — build only after World corpus is populated.)
 3. *(Field-level)* `projects.goal` — maneger `projects` has only `description`. (`project_record` does not exist anywhere — do not invent it.)
 
 ## 6 · Project Research page — REVEAL-BEFORE-ADD verdict (2026-08-17)
@@ -69,7 +70,7 @@ _Last verified: 2026-08-17 (full REVEAL-BEFORE-ADD audit). Counts measured from 
 |---|---|---|
 | 0+① Project identity / goal | EXISTS & VISIBLE (goal field PARTIAL) | reuse maneger `projects` |
 | ② Fresco knowledge | EXISTS & VISIBLE | reuse Search/Ask/FormulaCheck + maneger Lab |
-| ③ World knowledge | **TRULY MISSING** | new dev (with proven provenance gates) |
+| ③ World knowledge | EXISTS & HIDDEN (backend live, no UI yet) | populate corpus, then surface |
 | ④ Unknown / gaps | PARTIAL | project-scope surfacing of detectGaps / what_missing |
 | ⑤ Contradictions | EXISTS & VISIBLE (**DUPLICATE ×2**) | unify to one surface |
 | ⑥ Critical ranked gap | **TRULY MISSING** | new dev |
