@@ -1,0 +1,53 @@
+name: Safe Repair (manual)
+
+# Opens exactly ONE focused, LOW-RISK repair pull request for this repository.
+# Manual trigger only — repair is never part of the daily schedule.
+# Enforces the preconditions in .claude/skills/safe-repair/SKILL.md.
+#
+# Requires repository secret: ANTHROPIC_API_KEY  (see .claude/skills/README.md)
+
+on:
+  workflow_dispatch:
+    inputs:
+      finding:
+        description: 'Optional: the specific finding / recommendation to repair'
+        required: false
+        type: string
+
+permissions:
+  contents: write
+  pull-requests: write
+
+concurrency:
+  group: safe-repair-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  repair:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Safe Repair (open one PR, then stop)
+        uses: anthropics/claude-code-action@v1
+        with:
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          claude_args: '--max-turns 60'
+          prompt: |
+            Run the routine in .claude/skills/safe-repair/SKILL.md on THIS repository.
+
+            Finding to address (may be empty): ${{ inputs.finding }}
+            If empty, first run the repository-health routine to identify the single
+            highest-value LOW-RISK item, then repair that.
+
+            Enforce ALL preconditions from the skill (health report exists, concrete
+            issue exists, fix is LOW RISK, and authorisation = this manual run).
+            Apply only a minimal LOW-RISK fix on a fresh branch
+            repository-health/<YYYY-MM-DD>, VERIFY it (re-run tests/lint/build),
+            then open exactly ONE pull request against the default branch using the
+            skill's PR template. Then STOP.
+            Never merge. Never push to the default branch. Never open an empty PR.
