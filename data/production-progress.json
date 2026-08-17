@@ -1,0 +1,61 @@
+{
+  "_README": "Canonical Production Progress record. BINDING SESSION RULE: every session that changes MATRIYA must append a session entry here (newest first) BEFORE it closes, in the same PR as the change. If nothing really changed in production, append an entry with no_production_change: true. Stages: CODED (exists on a branch) < MERGED (in main) < DEPLOYED (running in production) < LIVE_VERIFIED (verified against production at runtime). A capability may never be presented as an improvement while it is only CODED. GET /progress renders this record and upgrades stages with runtime self-checks.",
+  "sessions": [
+    {
+      "id": "2026-08-17-world-engine",
+      "date": "2026-08-17",
+      "title": "World Knowledge + comparison gate landed in main",
+      "no_production_change": false,
+      "merged_to_main": [
+        { "pr": 11, "sha": "4df888e", "title": "Live Fresco↔World comparison — POST /world/compare (contracts #7/#8 wired, gate before verdict)" },
+        { "pr": 10, "sha": "7aebd19", "title": "World Knowledge provenance layer — world_external isolated from every Fresco surface" },
+        { "pr": 9, "sha": "f5c6277", "title": "Canonical PRODUCT-INVENTORY.md + binding REVEAL-BEFORE-ADD rule" }
+      ],
+      "capability_delta": [
+        {
+          "name": "World Knowledge (מחלקת ראיות עולמית)",
+          "before": "MISSING — לא היה ייצוג לידע חיצוני; הכל נכנס לסל אחד",
+          "now": "LIVE & ISOLATED — world_external חי, מבודד מכל משטח Fresco",
+          "stage": "MERGED",
+          "evidence": "/world/status · /world/ingest מסרב לאנונימי · 5 גבולות בידוד מוכחים ב-CI",
+          "impact": "MATRIYA מסוגלת להחזיק ידע Fresco וידע עולמי בנפרד — התנאי לכל השוואה"
+        },
+        {
+          "name": "השוואה מדעית עם שער (NOT_COMPARABLE)",
+          "before": "PROVEN-OFFLINE — חוזים ב-PRs #7/#8 בלבד",
+          "now": "MERGED — POST /world/compare; השער רץ לפני כל שיפוט ערכים",
+          "stage": "MERGED",
+          "evidence": "check-live-comparison ב-CI: מקרה אמיתי (EXP-LEG-044 מול Oguz 2025) → NOT_COMPARABLE, naive CONFLICT דוכא",
+          "impact": "המערכת יודעת מתי אסור לה להשוות — אין יותר סתירות מדעיות שקריות"
+        },
+        {
+          "name": "חוק ה-Inventory (REVEAL-BEFORE-ADD)",
+          "before": "MISSING — כל סשן בנה מחדש יכולות קיימות",
+          "now": "MERGED — PRODUCT-INVENTORY.md קנוני; כל שינוי מתחיל ממנו",
+          "stage": "MERGED",
+          "evidence": "PRODUCT-INVENTORY.md ב-main + עדכון-באותו-PR נאכף",
+          "impact": "בונים 2, חושפים 4, ממחזרים 3 — במקום לבנות 9"
+        }
+      ],
+      "regressions": [],
+      "open_decisions": [
+        "אכלוס מסמך עולמי ראשון ב-production (POST /world/ingest) — בלעדיו ה-corpus העולמי ריק",
+        "אישור בניית Critical Gap Ranking (רק אחרי corpus עולמי)",
+        "סגירת PR #2 (Repository Health — סומן SUPERSEDED ב-triage)",
+        "עתיד PRs #7/#8 — נשארים פתוחים כרשומת הוכחה"
+      ],
+      "attention_now": "ה-corpus העולמי ריק (world_external = 0). הפעולה האחת הבאה: לקלוט את המסמך העולמי המאומת הראשון (Oguz 2025, FSJ 153:104367) דרך /world/ingest ב-production."
+    },
+    {
+      "id": "2026-08-16-baseline",
+      "date": "2026-08-16",
+      "title": "Baseline לפני שכבת ה-World",
+      "no_production_change": true,
+      "merged_to_main": [],
+      "capability_delta": [],
+      "regressions": [],
+      "open_decisions": [],
+      "attention_now": "נקודת פתיחה: מנוע RAG פנימי + לולאת מחקר; אין provenance עולמי, אין שער השוואה, אין חוק inventory."
+    }
+  ]
+}

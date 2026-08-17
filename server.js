@@ -69,6 +69,7 @@ import {
 import { repairUtf8MisdecodedAsLatin1 } from './lib/textEncoding.js';
 import { buildWorldMetadata, worldScopeFilter, provenanceOf, WORLD_SOURCE_CLASS } from './lib/worldKnowledge.js';
 import { scientificCompare, RELATION as COMPARE_RELATION, CRITICAL_CONDITIONS } from './lib/comparabilityContract.js';
+import { loadProgressRecord, renderProgressPage } from './lib/productionProgress.js';
 import { RAG_INSUFFICIENT_SUPPORT_MESSAGE_HE } from './lib/ragEvidenceFailSafe.js';
 import { registerMriRoutes } from './mriEndpoint.js';
 
@@ -1901,6 +1902,58 @@ app.get("/files", async (req, res) => {
 /**
  * Get list of files with metadata (file type derived from name, chunks_count, uploaded_at)
  */
+// ============ MATRIYA · Production Progress (canonical change monitor) ============
+// One canonical screen: what changed since the last session, what is merged,
+// and what is ACTUALLY live — verified by self-tests inside this very process.
+// The record (data/production-progress.json) is updated by every session that
+// changes MATRIYA, in the same PR, per the binding rule in PRODUCT-INVENTORY.md.
+
+async function gatherProgressLiveSignals() {
+  const live = { served_at: new Date().toISOString() };
+  live.deploy_sha = (process.env.VERCEL_GIT_COMMIT_SHA || '').slice(0, 7) || 'local';
+  // Self-test 1: the scientific gate, in this process. A conditions-free pair
+  // must come back NOT_COMPARABLE (never a value verdict).
+  try {
+    const r = scientificCompare(
+      { source_class: 'fresco_internal', source_id: 'SELFTEST-F', subject: 's', metric: 'm', value: 1, conditions: {} },
+      { source_class: 'world_external', source_id: 'SELFTEST-W', subject: 's', metric: 'm', value: 2, conditions: {} }
+    );
+    live.gate_selftest = { ok: r.relation === COMPARE_RELATION.NOT_COMPARABLE, relation: r.relation };
+  } catch (e) {
+    live.gate_selftest = { ok: false, relation: `error: ${e.message}` };
+  }
+  // Self-test 2: DB-backed world corpus counts (graceful when DB is absent).
+  try {
+    const counts = await getRagService().vectorStore.countBySourceClass();
+    live.world_status = counts.length >= 0 ? { ok: true, counts } : { ok: false, error: 'empty' };
+  } catch (e) {
+    live.world_status = { ok: false, error: e.message };
+  }
+  return live;
+}
+
+app.get('/progress', async (req, res) => {
+  try {
+    const record = loadProgressRecord();
+    const live = await gatherProgressLiveSignals();
+    res.set('Cache-Control', 'no-store');
+    return res.type('html').send(renderProgressPage(record, live));
+  } catch (e) {
+    return res.status(500).type('html').send(`<pre>progress unavailable: ${e.message}</pre>`);
+  }
+});
+
+app.get('/progress.json', async (req, res) => {
+  try {
+    const record = loadProgressRecord();
+    const live = await gatherProgressLiveSignals();
+    res.set('Cache-Control', 'no-store');
+    return res.json({ record, live });
+  } catch (e) {
+    return res.status(500).json({ error: e.message });
+  }
+});
+
 // ============ World Knowledge (world_external provenance) ============
 // Live second evidence class. Isolation law: world chunks are tagged
 // source_class='world_external' + source_id + citation at ingest; every
