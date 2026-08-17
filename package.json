@@ -8,7 +8,7 @@
     "start": "node server.js",
     "dev": "node --watch server.js",
     "test": "npm run test:unit",
-    "test:unit": "npm run check:pre-llm-gate && npm run check:attribution-document-flow && npm run verify:david-three && npm run verify:chai-scope && npm run check:retrieval-threshold && npm run check:answer-binding && npm run test:delete-guard && npm run verify:scope-signoff && npm run verify:david-checklist && npm run check:world-knowledge && npm run check:live-comparison",
+    "test:unit": "npm run check:pre-llm-gate && npm run check:attribution-document-flow && npm run verify:david-three && npm run verify:chai-scope && npm run check:retrieval-threshold && npm run check:answer-binding && npm run test:delete-guard && npm run verify:scope-signoff && npm run verify:david-checklist && npm run check:world-knowledge && npm run check:live-comparison && npm run check:production-progress",
     "verify:scope-signoff": "node scripts/verify-scope-signoff.mjs",
     "verify:david-checklist": "node scripts/verify-david-checklist.mjs",
     "test:integration": "npm run check:task3 && npm run check:task4 && npm run check:task5 && npm run check:task6 && npm run check:task7 && npm run check:task8 && npm run check:task2 && npm run check:dashboard",
@@ -30,7 +30,8 @@
     "check:answer-binding": "node scripts/check-answer-binding-filter.js",
     "test:delete-guard": "node scripts/test-delete-snippet-guard.mjs",
     "check:world-knowledge": "node scripts/check-world-knowledge.js",
-    "check:live-comparison": "node scripts/check-live-comparison.js"
+    "check:live-comparison": "node scripts/check-live-comparison.js",
+    "check:production-progress": "node scripts/check-production-progress.js"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.39.0",

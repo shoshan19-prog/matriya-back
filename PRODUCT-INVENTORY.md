@@ -13,6 +13,14 @@
 > 5. **ONLY THEN BUILD** — new code is justified only for `TRULY MISSING`.
 >
 > After any change that adds/removes/surfaces a capability — **update this document in the same PR.**
+>
+> **BINDING SESSION RULE — Production Progress:** every session that changes
+> MATRIYA must append a session entry to `data/production-progress.json`
+> (rendered at `GET /progress`) BEFORE the session closes, in the same PR.
+> Stages are strict: `CODED < MERGED < DEPLOYED < LIVE_VERIFIED` — a capability
+> may never be presented as an improvement while only CODED. If nothing really
+> changed in production, the entry is `no_production_change: true`
+> ("NO PRODUCTION CHANGE").
 
 _Last verified: 2026-08-17 (full REVEAL-BEFORE-ADD audit). Counts measured from code on `main` branches._
 
@@ -52,6 +60,7 @@ _Last verified: 2026-08-17 (full REVEAL-BEFORE-ADD audit). Counts measured from 
 | **Insights / experiment sync** | `GET /insights/experiment/:experimentId`, `POST /sync/experiments` |
 | **World Knowledge (live provenance layer)** | `POST /world/ingest` (requires source_id + citation; never enters the OpenAI file_search store), `GET /world/search` (explicit world-only retrieval with provenance), `GET /world/status` (counts by source_class). Isolation: default Fresco retrieval + file enumeration exclude `source_class='world_external'` (`lib/worldKnowledge.js`, `scripts/check-world-knowledge.js`) |
 | **Live Fresco↔World comparison** | `POST /world/compare` — scientific comparison of one Fresco claim vs one World claim via the proven contracts (`lib/dualProvenanceContract.js` + `lib/comparabilityContract.js`, ported from PRs #7/#8): comparability gate BEFORE any value verdict → `AGREE / CONFLICT / FRESCO_ONLY / WORLD_ONLY / NOT_COMPARABLE`, full per-side provenance, isolation refusals are 400s (`scripts/check-live-comparison.js`) |
+| **Production Progress monitor** | `GET /progress` (HTML) + `GET /progress.json` — the canonical production change monitor: per-session record (`data/production-progress.json`, binding rule above) + runtime self-tests in the serving process (gate self-test, DB/world corpus counts, deploy SHA). Stage ladder CODED/MERGED/DEPLOYED/LIVE_VERIFIED computed at request time (`lib/productionProgress.js`, `scripts/check-production-progress.js`) |
 
 ## 4 · DEAD (do not build on, remove-candidates)
 
