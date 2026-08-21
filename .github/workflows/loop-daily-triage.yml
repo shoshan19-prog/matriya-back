@@ -1,0 +1,41 @@
+name: Loop · Daily Triage
+
+# Scheduled L1 (report-only) triage loop. See loops/patterns/daily-triage.md.
+#
+# SETUP REQUIRED before this does anything:
+#   Add repo secret  ANTHROPIC_API_KEY  (Settings → Secrets → Actions).
+# Without it, the job skips cleanly (the `if` guard below) so it never fails noisily.
+
+on:
+  schedule:
+    - cron: "0 6 * * *" # 06:00 UTC daily — one low-cost run/day (see loop-budget.md)
+  workflow_dispatch: {} # allow manual runs
+
+permissions:
+  contents: read
+  issues: write
+  pull-requests: read
+
+jobs:
+  triage:
+    runs-on: ubuntu-latest
+    # Skip unless the API key is configured, so the loop stays opt-in.
+    if: ${{ vars.LOOP_TRIAGE_ENABLED == 'true' }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20.x
+          cache: npm
+
+      - run: npm ci
+
+      - name: Run Daily Triage loop
+        uses: anthropics/claude-code-action@v1
+        with:
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          # Reuse the same loop definition the local /loop-daily-triage command runs.
+          prompt_file: .claude/commands/loop-daily-triage.md
