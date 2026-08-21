@@ -56,6 +56,10 @@ desktop.ini
 *.log
 logs/
 
+# Agentic-OS skills: generated artifacts
+scripts/eval-baseline.json
+brief-*.md
+
 # Temporary files
 tmp/
 temp/
